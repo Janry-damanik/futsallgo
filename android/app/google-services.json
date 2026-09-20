@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "44965394097",
+    "project_id": "futsalgo-d37e0",
+    "storage_bucket": "futsalgo-d37e0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:44965394097:android:c0fab6e2ae8ac6a7a05490",
+        "android_client_info": {
+          "package_name": "com.example.futsallgo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeGiaGHCSiWECElkew0PXfdYcvYDK74hw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
