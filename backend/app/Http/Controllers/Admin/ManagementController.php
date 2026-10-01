@@ -254,7 +254,58 @@ class ManagementController extends Controller
         return view('admin.settings', [
             'settings' => VenueSetting::current(),
             'slots' => BlockedSlot::orderBy('slot')->get(),
+            'courts' => Court::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
+    }
+
+    public function storeFacility(Request $request)
+    {
+        $facility = trim($request->validate([
+            'facility' => ['required', 'string', 'min:2', 'max:60'],
+        ])['facility']);
+        $settings = VenueSetting::current();
+        $facilities = $settings->facilities ?? [];
+        abort_if(collect($facilities)->contains(fn ($item) => mb_strtolower($item) === mb_strtolower($facility)), 422, 'Fasilitas tersebut sudah terdaftar.');
+        $facilities[] = $facility;
+        $settings->update(['facilities' => array_values($facilities)]);
+
+        return back()->with('success', 'Fasilitas venue ditambahkan.');
+    }
+
+    public function updateFacility(Request $request, int $index)
+    {
+        $facility = trim($request->validate([
+            'facility' => ['required', 'string', 'min:2', 'max:60'],
+        ])['facility']);
+        $settings = VenueSetting::current();
+        $facilities = $settings->facilities ?? [];
+        abort_unless(array_key_exists($index, $facilities), 404);
+        abort_if(collect($facilities)->except($index)->contains(fn ($item) => mb_strtolower($item) === mb_strtolower($facility)), 422, 'Fasilitas tersebut sudah terdaftar.');
+        $facilities[$index] = $facility;
+        $settings->update(['facilities' => array_values($facilities)]);
+
+        return back()->with('success', 'Fasilitas venue diperbarui.');
+    }
+
+    public function deleteFacility(int $index)
+    {
+        $settings = VenueSetting::current();
+        $facilities = $settings->facilities ?? [];
+        abort_unless(array_key_exists($index, $facilities), 404);
+        unset($facilities[$index]);
+        $settings->update(['facilities' => array_values($facilities)]);
+
+        return back()->with('success', 'Fasilitas venue dihapus.');
+    }
+
+    public function updateCourtDetails(Request $request, Court $court)
+    {
+        $court->update($request->validate([
+            'surface' => ['nullable', 'string', 'max:100'],
+            'description' => ['nullable', 'string', 'max:1000'],
+        ]));
+
+        return back()->with('success', 'Deskripsi lapangan diperbarui.');
     }
 
     public function updateSettings(Request $request)

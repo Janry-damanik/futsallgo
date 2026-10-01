@@ -135,7 +135,7 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
                       hintText: 'Cari lapangan',
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: const Color(0xFFF0F2F5),
+                      fillColor: theme.colorScheme.surfaceContainerHighest,
                       contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(28),
@@ -224,8 +224,8 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
                         margin: const EdgeInsets.symmetric(horizontal: 3),
                         decoration: BoxDecoration(
                           color: activePromoIndex == index
-                              ? const Color(0xFF192E50)
-                              : const Color(0xFFD5DAE2),
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outline,
                           borderRadius: BorderRadius.circular(99),
                         ),
                       ),
@@ -533,7 +533,7 @@ class _FieldCard extends StatelessWidget {
       width: 204,
       child: Card(
         clipBehavior: Clip.antiAlias,
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: InkWell(
           onTap: onPressed,
@@ -622,7 +622,7 @@ class _FieldCard extends StatelessWidget {
                     Text(
                       field.price,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF176651),
+                        color: theme.colorScheme.primary,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -656,8 +656,8 @@ class _FieldCard extends StatelessWidget {
                       child: FilledButton(
                         onPressed: onPressed,
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF192E50),
-                          foregroundColor: Colors.white,
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
                           padding: EdgeInsets.zero,
                         ),
                         child: const Text('Pesan'),
@@ -698,13 +698,13 @@ class _FacilityChip extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 180),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFFE7F2EE),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF176651)),
+          Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 7),
           Flexible(
             child: Text(

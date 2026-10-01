@@ -266,6 +266,46 @@ class AdminApiTest extends TestCase
         Storage::disk('public')->assertExists($court->image_path);
     }
 
+    public function test_web_admin_can_manage_venue_facilities_and_court_details(): void
+    {
+        $admin = User::create([
+            'name' => 'Venue Web Admin',
+            'email' => 'venue-web-admin@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        $court = Court::create([
+            'name' => 'Lapangan Web',
+            'surface' => 'Rumput sintetis',
+            'description' => 'Deskripsi lama.',
+            'price_per_hour' => 200000,
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/settings')
+            ->assertOk()
+            ->assertSee('Fasilitas venue')
+            ->assertSee('Deskripsi lapangan');
+
+        $this->post('/admin/settings/facilities', ['facility' => 'Kamar mandi'])
+            ->assertRedirect();
+        $this->assertContains('Kamar mandi', VenueSetting::current()->fresh()->facilities);
+
+        $this->patch('/admin/settings/facilities/0', ['facility' => 'Kantin'])
+            ->assertRedirect();
+        $this->assertSame(['Kantin'], VenueSetting::current()->fresh()->facilities);
+
+        $this->patch("/admin/settings/courts/{$court->id}/details", [
+            'surface' => 'Vinyl',
+            'description' => 'Lapangan indoor dengan tribun.',
+        ])->assertRedirect();
+        $this->assertSame('Vinyl', $court->fresh()->surface);
+        $this->assertSame('Lapangan indoor dengan tribun.', $court->fresh()->description);
+
+        $this->delete('/admin/settings/facilities/0')->assertRedirect();
+        $this->assertSame([], VenueSetting::current()->fresh()->facilities);
+    }
+
     public function test_web_admin_can_manage_home_promos(): void
     {
         Storage::fake('public');

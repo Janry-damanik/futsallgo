@@ -376,13 +376,14 @@ class _CourtImageFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xFFE7F2EE),
+    final scheme = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: scheme.surfaceContainerHighest,
       child: Center(
         child: Icon(
           Icons.sports_soccer_rounded,
           size: 72,
-          color: Color(0xFF176651),
+          color: scheme.primary,
         ),
       ),
     );

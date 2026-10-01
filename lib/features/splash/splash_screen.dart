@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/router/routes.dart';
-import '../../core/theme/app_colors.dart';
+import '../../core/widgets/futsal_brand_mark.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -63,11 +63,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(gradient: AppColors.brandGradient),
+      backgroundColor: const Color(0xFF030708),
+      body: FutsalSplashBackdrop(
         child: SafeArea(
           child: Column(
             children: [
@@ -76,60 +74,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 opacity: _fade,
                 child: ScaleTransition(
                   scale: _scale,
-                  child: Container(
-                    width: 104,
-                    height: 104,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.25),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.sports_soccer_rounded,
-                      size: 60,
-                      color: AppColors.primary,
-                      semanticLabel: 'Logo FutsalGo',
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              FadeTransition(
-                opacity: _fade,
-                child: Column(
-                  children: [
-                    Text(
-                      AppConstants.appName,
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      AppConstants.tagline,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ],
+                  child: const FutsalBrandMark(width: 280),
                 ),
               ),
               const Spacer(flex: 2),
               const SizedBox(
-                width: 28,
-                height: 28,
+                width: 32,
+                height: 32,
                 child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: Colors.white,
+                  strokeWidth: 3.5,
+                  color: Color(0xFF00D47A),
                 ),
               ),
               const SizedBox(height: 48),

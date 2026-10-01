@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\AuthController;
-use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ManagementController;
+use App\Http\Controllers\Api\EmailVerificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route(auth()->check() ? 'admin.dashboard' : 'login'));
@@ -39,6 +39,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::delete('/customers/{user}', [ManagementController::class, 'deleteCustomer'])->name('customers.delete');
     Route::get('/settings', [ManagementController::class, 'settings'])->name('settings');
     Route::put('/settings', [ManagementController::class, 'updateSettings'])->name('settings.update');
+    Route::post('/settings/facilities', [ManagementController::class, 'storeFacility'])->name('settings.facilities.store');
+    Route::patch('/settings/facilities/{index}', [ManagementController::class, 'updateFacility'])->whereNumber('index')->name('settings.facilities.update');
+    Route::delete('/settings/facilities/{index}', [ManagementController::class, 'deleteFacility'])->whereNumber('index')->name('settings.facilities.delete');
+    Route::patch('/settings/courts/{court}/details', [ManagementController::class, 'updateCourtDetails'])->name('settings.courts.details');
     Route::post('/slots', [ManagementController::class, 'storeSlot'])->name('slots.store');
     Route::delete('/slots/{blockedSlot}', [ManagementController::class, 'deleteSlot'])->name('slots.delete');
 });

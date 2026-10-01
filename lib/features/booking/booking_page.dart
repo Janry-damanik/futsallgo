@@ -138,7 +138,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   Text(
                     selectedCourt.toUpperCase(),
                     style: theme.textTheme.headlineSmall?.copyWith(
-                      color: const Color(0xFF192E50),
+                      color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -178,7 +178,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         child: Text(
                           'Jadwal',
                           style: theme.textTheme.titleLarge?.copyWith(
-                            color: const Color(0xFF192E50),
+                            color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -186,7 +186,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       Text(
                         _monthYear(_selectedDate),
                         style: theme.textTheme.titleSmall?.copyWith(
-                          color: const Color(0xFF192E50),
+                          color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -227,11 +227,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           (duration) => ChoiceChip(
                             label: Text('$duration jam'),
                             selected: duration == _selectedDuration,
-                            selectedColor: const Color(0xFF192E50),
+                            selectedColor: theme.colorScheme.primary,
                             labelStyle: TextStyle(
                               color: duration == _selectedDuration
-                                  ? Colors.white
-                                  : const Color(0xFF192E50),
+                                  ? theme.colorScheme.onPrimary
+                                  : theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                             onSelected: (_) {
@@ -311,15 +311,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           onPressed: () => setState(() => _selectedSlot = slot),
                           style: OutlinedButton.styleFrom(
                             backgroundColor: selected
-                                ? const Color(0xFF192E50)
-                                : Colors.white,
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.surface,
                             foregroundColor: selected
-                                ? Colors.white
-                                : const Color(0xFF192E50),
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSurface,
                             side: BorderSide(
                               color: selected
-                                  ? const Color(0xFF192E50)
-                                  : const Color(0xFFD4DAE2),
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outline,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -375,7 +375,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.colorScheme.surface,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.08),
@@ -401,7 +401,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     Text(
                       _rupiah(total),
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF192E50),
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -419,7 +419,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         total,
                       ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF192E50),
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
                   minimumSize: const Size(150, 48),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -731,11 +732,16 @@ class _DateOption extends StatelessWidget {
       'Nov',
       'Des',
     ];
-    final foreground = selected ? Colors.white : const Color(0xFF192E50);
+    final theme = Theme.of(context);
+    final foreground = selected
+        ? theme.colorScheme.onPrimary
+        : theme.colorScheme.onSurface;
     return SizedBox(
       width: 68,
       child: Material(
-        color: selected ? const Color(0xFF192E50) : const Color(0xFFF0F2F5),
+        color: selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(11),
         child: InkWell(
           onTap: onTap,
