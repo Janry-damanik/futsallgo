@@ -2,27 +2,60 @@
 
 namespace Tests\Feature;
 
-use App\Models\Booking;
+use App\Mail\EmailVerificationCodeMail;
 use App\Models\BlockedSlot;
+use App\Models\Booking;
 use App\Models\Court;
+use App\Models\PromoBanner;
 use App\Models\User;
 use App\Models\VenueSetting;
-use App\Mail\EmailVerificationCodeMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
-use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class AdminApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_public_sports_news_returns_top_headlines(): void
+    {
+        config(['services.newsapi.key' => 'test-news-key']);
+        Cache::forget('newsapi.sports.id');
+        Http::fake([
+            'https://newsapi.org/v2/everything*' => Http::response([
+                'status' => 'ok',
+                'articles' => [[
+                    'title' => 'Timnas menang',
+                    'description' => 'Kemenangan pada laga malam ini.',
+                    'urlToImage' => 'https://example.com/football.jpg',
+                    'url' => 'https://example.com/football',
+                    'source' => ['name' => 'Berita Olahraga'],
+                    'publishedAt' => '2026-10-02T10:00:00Z',
+                ]],
+            ]),
+        ]);
+
+        $this->getJson('/api/v1/sports-news')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.title', 'Timnas menang')
+            ->assertJsonPath('data.0.source', 'Berita Olahraga');
+
+        Http::assertSent(fn ($request) => str_starts_with(
+            $request->url(),
+            'https://newsapi.org/v2/everything',
+        ) && $request['q'] === 'football OR soccer OR futsal OR sports'
+            && $request['sortBy'] === 'publishedAt');
+    }
 
     public function test_admin_can_upload_court_image_and_customers_cannot(): void
     {
@@ -202,7 +235,7 @@ class AdminApiTest extends TestCase
                 'image' => UploadedFile::fake()->image('promo-create.png'),
             ])
             ->assertRedirect(route('admin.promos'));
-        $promo = \App\Models\PromoBanner::query()
+        $promo = PromoBanner::query()
             ->where('title', 'Main bareng teman')
             ->firstOrFail();
         $oldImagePath = $promo->image_path;
@@ -735,6 +768,7 @@ class AdminApiTest extends TestCase
         $links = [];
         Mail::assertSent(EmailVerificationCodeMail::class, function (EmailVerificationCodeMail $mail) use (&$links) {
             $links[] = $mail->verificationUrl;
+
             return true;
         });
         $this->assertCount(2, $links);
@@ -776,6 +810,7 @@ class AdminApiTest extends TestCase
         $code = null;
         Mail::assertSent(EmailVerificationCodeMail::class, function (EmailVerificationCodeMail $mail) use (&$code) {
             $code = $mail->code;
+
             return true;
         });
 
@@ -813,6 +848,7 @@ class AdminApiTest extends TestCase
         $verificationUrl = null;
         Mail::assertSent(EmailVerificationCodeMail::class, function (EmailVerificationCodeMail $mail) use (&$verificationUrl) {
             $verificationUrl = $mail->verificationUrl;
+
             return true;
         });
         $this->get($verificationUrl)->assertOk()->assertSee('Email berhasil diverifikasi');

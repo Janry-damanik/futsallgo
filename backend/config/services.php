@@ -40,4 +40,8 @@ return [
         'core_api_base_url' => env('MIDTRANS_CORE_API_BASE_URL', 'https://api.midtrans.com/v2'),
     ],
 
+    'newsapi' => [
+        'key' => env('NEWS_API_KEY'),
+    ],
+
 ];

@@ -7,6 +7,7 @@ import '../../core/providers/admin_settings_provider.dart';
 import '../../core/router/routes.dart';
 import '../booking/booking_page.dart';
 import '../history/history_page.dart';
+import 'sports_news_section.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -289,6 +290,8 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
                       ),
                     ),
                   ),
+                const SizedBox(height: 28),
+                const SportsNewsSection(),
               ],
             ),
           ),

@@ -1,10 +1,11 @@
 <?php
 
-use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\MidtransQrisController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\MidtransNotificationController;
+use App\Http\Controllers\Api\MidtransQrisController;
 use App\Http\Controllers\Api\PromoController;
+use App\Http\Controllers\Api\SportsNewsController;
 use App\Http\Controllers\Api\VenueController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +19,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/settings', [VenueController::class, 'show']);
     Route::get('/courts', [VenueController::class, 'courts']);
     Route::get('/promos', [PromoController::class, 'index']);
+    Route::get('/sports-news', SportsNewsController::class)->middleware('throttle:30,1');
     Route::post('/payments/midtrans/notification', MidtransNotificationController::class)->middleware('throttle:60,1');
 
     Route::middleware('auth:sanctum')->group(function () {
