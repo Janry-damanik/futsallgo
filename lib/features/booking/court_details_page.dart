@@ -58,13 +58,13 @@ class _CourtDetailsPageState extends ConsumerState<CourtDetailsPage> {
             height: 230,
             child: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
                 ? CachedNetworkImage(
-                  imageUrl: widget.imageUrl!,
+                    imageUrl: widget.imageUrl!,
                     fit: BoxFit.cover,
-                  memCacheWidth: 1200,
-                  maxWidthDiskCache: 1600,
-                  fadeInDuration: const Duration(milliseconds: 120),
-                  placeholder: (_, _) => const _CourtImageFallback(),
-                  errorWidget: (_, _, _) => const _CourtImageFallback(),
+                    memCacheWidth: 1200,
+                    maxWidthDiskCache: 1600,
+                    fadeInDuration: const Duration(milliseconds: 120),
+                    placeholder: (_, _) => const _CourtImageFallback(),
+                    errorWidget: (_, _, _) => const _CourtImageFallback(),
                   )
                 : const _CourtImageFallback(),
           ),
@@ -315,17 +315,22 @@ class CourtReview {
     required this.customerName,
     required this.rating,
     required this.comment,
+    required this.createdAt,
   });
 
   final String customerName;
   final int rating;
   final String comment;
+  final DateTime? createdAt;
 
   factory CourtReview.fromJson(Map<String, dynamic> json) {
     return CourtReview(
       customerName: json['customerName']?.toString() ?? 'Pelanggan',
       rating: int.tryParse(json['rating']?.toString() ?? '') ?? 0,
       comment: json['comment']?.toString() ?? '',
+      createdAt: DateTime.tryParse(
+        json['createdAt']?.toString() ?? '',
+      )?.toLocal(),
     );
   }
 }
@@ -367,6 +372,25 @@ class _ReviewTile extends StatelessWidget {
               ),
             ],
           ),
+          if (review.createdAt case final createdAt?) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 13,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  _formatReviewDate(createdAt),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 6),
           Text(review.comment),
           const Divider(height: 20),
@@ -374,6 +398,26 @@ class _ReviewTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatReviewDate(DateTime date) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
+  ];
+  final hour = date.hour.toString().padLeft(2, '0');
+  final minute = date.minute.toString().padLeft(2, '0');
+  return '${date.day} ${months[date.month - 1]} ${date.year} · $hour:$minute';
 }
 
 class _CourtImageFallback extends StatelessWidget {
