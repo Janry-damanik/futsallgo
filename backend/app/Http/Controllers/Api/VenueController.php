@@ -8,13 +8,14 @@ use App\Models\Court;
 use App\Models\VenueSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class VenueController extends Controller
 {
     public function show(Request $request)
     {
         $settings = VenueSetting::current();
-        $courts = Court::query()->where('is_active', true)->orderBy('id')->get();
+        $courts = Court::query()->where('is_active', true)->withAvg('reviews', 'rating')->withCount('reviews')->orderBy('id')->get();
 
         return response()->json(['data' => [
             'venueName' => $settings->name,
@@ -34,6 +35,19 @@ class VenueController extends Controller
                     ? $request->getSchemeAndHttpHost().'/storage/'.$court->image_path
                     : null,
             ]),
+            'courtDescriptions' => $courts->mapWithKeys(fn (Court $court) => [
+                $court->name => $court->description,
+            ]),
+            'courtSurfaces' => $courts->mapWithKeys(fn (Court $court) => [
+                $court->name => $court->surface,
+            ]),
+            'courtRatings' => $courts->mapWithKeys(fn (Court $court) => [
+                $court->name => [
+                    'average' => (float) ($court->reviews_avg_rating ?? 0),
+                    'count' => $court->reviews_count,
+                ],
+            ]),
+            'facilities' => $settings->facilities ?? [],
             'blockedSlots' => BlockedSlot::query()->orderBy('slot')->pluck('slot')->map(fn ($slot) => str_replace(':', '.', substr($slot, 0, 5))),
         ]]);
     }
@@ -41,7 +55,7 @@ class VenueController extends Controller
     public function courts()
     {
         $settings = VenueSetting::current();
-        $courts = Court::query()->where('is_active', true)->orderBy('id')->get();
+        $courts = Court::query()->where('is_active', true)->withAvg('reviews', 'rating')->withCount('reviews')->orderBy('id')->get();
 
         return response()->json(['data' => $courts->map(fn (Court $court) => [
             'id' => $court->id,
@@ -53,6 +67,8 @@ class VenueController extends Controller
                 ? request()->getSchemeAndHttpHost().'/storage/'.$court->image_path
                 : null,
             'hourlyPrice' => $court->price_per_hour ?? $settings->hourly_price,
+            'averageRating' => (float) ($court->reviews_avg_rating ?? 0),
+            'reviewCount' => $court->reviews_count,
         ])]);
     }
 
@@ -67,7 +83,7 @@ class VenueController extends Controller
             'close_time' => ['required', 'date_format:H:i'],
         ]);
         if ($data['close_time'] !== '00:00' && $data['close_time'] <= $data['open_time']) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'close_time' => ['Jam tutup harus setelah jam buka.'],
             ]);
         }
@@ -81,6 +97,8 @@ class VenueController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:courts,name'],
             'price_per_hour' => ['nullable', 'integer', 'min:1'],
+            'surface' => ['nullable', 'string', 'max:100'],
+            'description' => ['nullable', 'string', 'max:1000'],
         ]);
         $data['price_per_hour'] ??= VenueSetting::current()->hourly_price;
         $court = Court::query()->create($data + ['category' => 'Futsal', 'is_active' => true]);
@@ -91,13 +109,37 @@ class VenueController extends Controller
     public function updateCourt(Request $request, string $court)
     {
         $model = Court::query()->where('name', $court)->firstOrFail();
-        $data = $request->validate(['price_per_hour' => ['required', 'integer', 'min:1']]);
+        $data = $request->validate([
+            'price_per_hour' => ['sometimes', 'required', 'integer', 'min:1'],
+            'surface' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
+        ]);
         $model->update($data);
 
         return response()->json(['data' => [
             'name' => $model->name,
             'hourlyPrice' => $model->price_per_hour,
+            'surface' => $model->surface,
+            'description' => $model->description,
         ]]);
+    }
+
+    public function updateFacilities(Request $request)
+    {
+        $data = $request->validate([
+            'facilities' => ['present', 'array', 'max:30'],
+            'facilities.*' => ['required', 'string', 'max:60'],
+        ]);
+        $facilities = collect($data['facilities'])
+            ->map(fn (string $facility) => trim($facility))
+            ->filter()
+            ->unique(fn (string $facility) => mb_strtolower($facility))
+            ->values()
+            ->all();
+
+        VenueSetting::current()->update(['facilities' => $facilities]);
+
+        return response()->json(['data' => ['facilities' => $facilities]]);
     }
 
     public function uploadCourtImage(Request $request, string $court)

@@ -177,6 +177,55 @@ class _CourtsTab extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionHeader(
+                  title: 'Fasilitas venue',
+                  action: IconButton(
+                    tooltip: 'Tambah fasilitas',
+                    onPressed: () => _editFacility(context, ref),
+                    icon: const Icon(Icons.add_circle_rounded),
+                  ),
+                ),
+                if (settings.facilities.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Belum ada fasilitas yang ditambahkan.'),
+                  )
+                else
+                  ...settings.facilities.map(
+                    (facility) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.check_circle_outline_rounded),
+                      title: Text(facility),
+                      trailing: Wrap(
+                        children: [
+                          IconButton(
+                            tooltip: 'Edit fasilitas',
+                            onPressed: () =>
+                                _editFacility(context, ref, facility),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          IconButton(
+                            tooltip: 'Hapus fasilitas',
+                            onPressed: () =>
+                                _removeFacility(context, ref, facility),
+                            icon: const Icon(Icons.delete_outline_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
         _SectionHeader(
           title: 'Daftar lapangan',
           action: IconButton(
@@ -192,34 +241,57 @@ class _CourtsTab extends ConsumerWidget {
               leading: _courtImageThumbnail(settings.courtImages[court]),
               title: Text(court),
               subtitle: Text(
-                'Aktif · ${_rupiah(settings.courtPrices[court] ?? settings.hourlyPrice)}',
+                'Aktif · ${_rupiah(settings.courtPrices[court] ?? settings.hourlyPrice)}'
+                '${(settings.courtDescriptions[court] ?? '').isEmpty ? '' : '\n${settings.courtDescriptions[court]}'}',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  IconButton(
-                    tooltip: 'Unggah foto lapangan',
-                    onPressed: () => _uploadCourtImage(context, ref, court),
-                    icon: const Icon(Icons.add_photo_alternate_outlined),
+              trailing: PopupMenuButton<String>(
+                tooltip: 'Kelola lapangan',
+                onSelected: (action) {
+                  switch (action) {
+                    case 'details':
+                      _editCourtDetails(
+                        context,
+                        ref,
+                        court,
+                        settings.courtDescriptions[court] ?? '',
+                        settings.courtSurfaces[court] ?? '',
+                      );
+                    case 'image':
+                      _uploadCourtImage(context, ref, court);
+                    case 'price':
+                      _editCourtPrice(
+                        context,
+                        ref,
+                        court,
+                        settings.courtPrices[court] ?? settings.hourlyPrice,
+                      );
+                    case 'delete':
+                      if (settings.courts.length > 1) {
+                        ref
+                            .read(adminSettingsProvider.notifier)
+                            .removeCourt(court);
+                      }
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'details',
+                    child: Text('Edit deskripsi'),
                   ),
-                  IconButton(
-                    tooltip: 'Atur harga per jam',
-                    onPressed: () => _editCourtPrice(
-                      context,
-                      ref,
-                      court,
-                      settings.courtPrices[court] ?? settings.hourlyPrice,
-                    ),
-                    icon: const Icon(Icons.payments_outlined),
+                  const PopupMenuItem(
+                    value: 'image',
+                    child: Text('Unggah foto'),
                   ),
-                  IconButton(
-                    tooltip: 'Hapus lapangan',
-                    onPressed: settings.courts.length == 1
-                        ? null
-                        : () => ref
-                              .read(adminSettingsProvider.notifier)
-                              .removeCourt(court),
-                    icon: const Icon(Icons.delete_outline_rounded),
+                  const PopupMenuItem(
+                    value: 'price',
+                    child: Text('Atur harga'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    enabled: settings.courts.length > 1,
+                    child: const Text('Hapus lapangan'),
                   ),
                 ],
               ),
@@ -404,6 +476,7 @@ Future<void> _editPromo(
     ),
   );
 
+  if (!context.mounted) return;
   if (confirmed == true) {
     if (eyebrow.text.trim().isEmpty ||
         title.text.trim().isEmpty ||
@@ -434,7 +507,7 @@ Future<void> _editPromo(
           );
         }
       } catch (error) {
-        _showPromoError(context, error);
+        if (context.mounted) _showPromoError(context, error);
       }
     }
   }
@@ -469,7 +542,7 @@ Future<void> _uploadPromoImage(
       );
     }
   } catch (error) {
-    _showPromoError(context, error);
+    if (context.mounted) _showPromoError(context, error);
   }
 }
 
@@ -495,11 +568,11 @@ Future<void> _deletePromo(
       ],
     ),
   );
-  if (confirmed != true) return;
+  if (!context.mounted || confirmed != true) return;
   try {
     await ref.read(adminSettingsProvider.notifier).removePromo(promo.id);
   } catch (error) {
-    _showPromoError(context, error);
+    if (context.mounted) _showPromoError(context, error);
   }
 }
 
@@ -716,17 +789,40 @@ class _StatCard extends StatelessWidget {
 }
 
 Future<void> _addCourt(BuildContext context, WidgetRef ref) async {
-  final controller = TextEditingController();
+  final name = TextEditingController();
+  final surface = TextEditingController();
+  final description = TextEditingController();
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('Tambah lapangan'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'Nama lapangan',
-          hintText: 'Contoh: Lapangan 2',
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nama lapangan',
+                  hintText: 'Contoh: Lapangan 2',
+                ),
+              ),
+              TextField(
+                controller: surface,
+                decoration: const InputDecoration(labelText: 'Jenis permukaan'),
+              ),
+              TextField(
+                controller: description,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Deskripsi lapangan',
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -742,9 +838,150 @@ Future<void> _addCourt(BuildContext context, WidgetRef ref) async {
     ),
   );
   if (confirmed == true) {
-    await ref.read(adminSettingsProvider.notifier).addCourt(controller.text);
+    await ref
+        .read(adminSettingsProvider.notifier)
+        .addCourt(
+          name.text,
+          description: description.text,
+          surface: surface.text,
+        );
+  }
+  name.dispose();
+  surface.dispose();
+  description.dispose();
+}
+
+Future<void> _editCourtDetails(
+  BuildContext context,
+  WidgetRef ref,
+  String court,
+  String currentDescription,
+  String currentSurface,
+) async {
+  final surface = TextEditingController(text: currentSurface);
+  final description = TextEditingController(text: currentDescription);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Detail $court'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: surface,
+              decoration: const InputDecoration(labelText: 'Jenis permukaan'),
+            ),
+            TextField(
+              controller: description,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Deskripsi lapangan',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) {
+    await ref
+        .read(adminSettingsProvider.notifier)
+        .updateCourtDetails(
+          court,
+          description: description.text,
+          surface: surface.text,
+        );
+  }
+  surface.dispose();
+  description.dispose();
+}
+
+Future<void> _editFacility(
+  BuildContext context,
+  WidgetRef ref, [
+  String? currentFacility,
+]) async {
+  final controller = TextEditingController(text: currentFacility ?? '');
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(
+        currentFacility == null ? 'Tambah fasilitas' : 'Edit fasilitas',
+      ),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        maxLength: 60,
+        decoration: const InputDecoration(
+          labelText: 'Nama fasilitas',
+          hintText: 'Contoh: Kamar mandi',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  );
+  final value = controller.text.trim();
+  if (confirmed == true && value.isNotEmpty) {
+    final facilities = [...ref.read(adminSettingsProvider).facilities];
+    if (currentFacility == null) {
+      facilities.add(value);
+    } else {
+      final index = facilities.indexOf(currentFacility);
+      if (index >= 0) facilities[index] = value;
+    }
+    await ref.read(adminSettingsProvider.notifier).updateFacilities(facilities);
   }
   controller.dispose();
+}
+
+Future<void> _removeFacility(
+  BuildContext context,
+  WidgetRef ref,
+  String facility,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Hapus fasilitas?'),
+      content: Text('Fasilitas "$facility" akan dihapus dari Beranda.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Hapus'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) {
+    final facilities = [...ref.read(adminSettingsProvider).facilities]
+      ..remove(facility);
+    await ref.read(adminSettingsProvider.notifier).updateFacilities(facilities);
+  }
 }
 
 Future<void> _uploadCourtImage(

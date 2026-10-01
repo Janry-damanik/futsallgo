@@ -29,6 +29,11 @@ class AdminSettings {
     required this.courtImages,
     required this.blockedSlots,
     this.promos = const [],
+    this.facilities = const [],
+    this.courtDescriptions = const {},
+    this.courtSurfaces = const {},
+    this.courtRatings = const {},
+    this.courtReviewCounts = const {},
   });
 
   final String venueName;
@@ -42,6 +47,11 @@ class AdminSettings {
   final Map<String, String> courtImages;
   final List<String> blockedSlots;
   final List<PromoBanner> promos;
+  final List<String> facilities;
+  final Map<String, String> courtDescriptions;
+  final Map<String, String> courtSurfaces;
+  final Map<String, double> courtRatings;
+  final Map<String, int> courtReviewCounts;
 
   static const defaults = AdminSettings(
     venueName: 'Arena Hijau Futsal',
@@ -54,6 +64,11 @@ class AdminSettings {
     courtPrices: {'Lapangan 1': 180000},
     courtImages: {},
     blockedSlots: [],
+    facilities: [],
+    courtDescriptions: {'Lapangan 1': ''},
+    courtSurfaces: {'Lapangan 1': ''},
+    courtRatings: {},
+    courtReviewCounts: {},
   );
 
   AdminSettings copyWith({
@@ -68,6 +83,11 @@ class AdminSettings {
     Map<String, String>? courtImages,
     List<String>? blockedSlots,
     List<PromoBanner>? promos,
+    List<String>? facilities,
+    Map<String, String>? courtDescriptions,
+    Map<String, String>? courtSurfaces,
+    Map<String, double>? courtRatings,
+    Map<String, int>? courtReviewCounts,
   }) {
     return AdminSettings(
       venueName: venueName ?? this.venueName,
@@ -81,6 +101,11 @@ class AdminSettings {
       courtImages: courtImages ?? this.courtImages,
       blockedSlots: blockedSlots ?? this.blockedSlots,
       promos: promos ?? this.promos,
+      facilities: facilities ?? this.facilities,
+      courtDescriptions: courtDescriptions ?? this.courtDescriptions,
+      courtSurfaces: courtSurfaces ?? this.courtSurfaces,
+      courtRatings: courtRatings ?? this.courtRatings,
+      courtReviewCounts: courtReviewCounts ?? this.courtReviewCounts,
     );
   }
 
@@ -95,6 +120,16 @@ class AdminSettings {
     'courtPrices': courtPrices,
     'courtImages': courtImages,
     'blockedSlots': blockedSlots,
+    'facilities': facilities,
+    'courtDescriptions': courtDescriptions,
+    'courtSurfaces': courtSurfaces,
+    'courtRatings': {
+      for (final name in courtRatings.keys)
+        name: {
+          'average': courtRatings[name],
+          'count': courtReviewCounts[name] ?? 0,
+        },
+    },
     'promos': promos
         .map(
           (promo) => {
@@ -108,6 +143,21 @@ class AdminSettings {
 
   factory AdminSettings.fromJson(Map<String, dynamic> json) {
     final rawCourtImages = json['courtImages'] as Map<dynamic, dynamic>?;
+    final rawCourtDescriptions =
+        json['courtDescriptions'] as Map<dynamic, dynamic>?;
+    final rawCourtSurfaces = json['courtSurfaces'] as Map<dynamic, dynamic>?;
+    final rawCourtRatings = json['courtRatings'] as Map<dynamic, dynamic>?;
+    final courtRatings = <String, double>{};
+    final courtReviewCounts = <String, int>{};
+    rawCourtRatings?.forEach((name, value) {
+      if (value is Map) {
+        final key = name.toString();
+        courtRatings[key] =
+            double.tryParse(value['average']?.toString() ?? '') ?? 0;
+        courtReviewCounts[key] =
+            int.tryParse(value['count']?.toString() ?? '') ?? 0;
+      }
+    });
     return AdminSettings(
       venueName: json['venueName']?.toString() ?? defaults.venueName,
       address: json['address']?.toString() ?? defaults.address,
@@ -150,6 +200,23 @@ class AdminSettings {
               )
               .toList() ??
           defaults.promos,
+      facilities:
+          (json['facilities'] as List<dynamic>?)
+              ?.map((item) => item.toString())
+              .toList() ??
+          defaults.facilities,
+      courtDescriptions:
+          rawCourtDescriptions?.map(
+            (name, value) => MapEntry(name.toString(), value?.toString() ?? ''),
+          ) ??
+          defaults.courtDescriptions,
+      courtSurfaces:
+          rawCourtSurfaces?.map(
+            (name, value) => MapEntry(name.toString(), value?.toString() ?? ''),
+          ) ??
+          defaults.courtSurfaces,
+      courtRatings: courtRatings,
+      courtReviewCounts: courtReviewCounts,
     );
   }
 }
@@ -181,15 +248,56 @@ class AdminSettingsController extends StateNotifier<AdminSettings> {
     await _persist();
   }
 
-  Future<void> addCourt(String name) async {
+  Future<void> addCourt(
+    String name, {
+    String description = '',
+    String surface = '',
+  }) async {
     final cleanName = name.trim();
     if (cleanName.isEmpty || state.courts.contains(cleanName)) return;
     final price = state.hourlyPrice;
-    await _api.post('/courts', {'name': cleanName, 'price_per_hour': price});
+    await _api.post('/courts', {
+      'name': cleanName,
+      'price_per_hour': price,
+      'description': description.trim(),
+      'surface': surface.trim(),
+    });
     state = state.copyWith(
       courts: [...state.courts, cleanName],
       courtPrices: {...state.courtPrices, cleanName: price},
+      courtDescriptions: {
+        ...state.courtDescriptions,
+        cleanName: description.trim(),
+      },
+      courtSurfaces: {...state.courtSurfaces, cleanName: surface.trim()},
     );
+    await _persist();
+  }
+
+  Future<void> updateCourtDetails(
+    String name, {
+    required String description,
+    required String surface,
+  }) async {
+    await _api.patch('/courts/${Uri.encodeComponent(name)}', {
+      'description': description.trim(),
+      'surface': surface.trim(),
+    });
+    state = state.copyWith(
+      courtDescriptions: {...state.courtDescriptions, name: description.trim()},
+      courtSurfaces: {...state.courtSurfaces, name: surface.trim()},
+    );
+    await _persist();
+  }
+
+  Future<void> updateFacilities(List<String> facilities) async {
+    final cleanFacilities = facilities
+        .map((facility) => facility.trim())
+        .where((facility) => facility.isNotEmpty)
+        .toSet()
+        .toList();
+    await _api.put('/facilities', {'facilities': cleanFacilities});
+    state = state.copyWith(facilities: cleanFacilities);
     await _persist();
   }
 
@@ -197,9 +305,17 @@ class AdminSettingsController extends StateNotifier<AdminSettings> {
     if (state.courts.length <= 1) return;
     await _api.delete('/courts/${Uri.encodeComponent(name)}');
     final prices = {...state.courtPrices}..remove(name);
+    final descriptions = {...state.courtDescriptions}..remove(name);
+    final surfaces = {...state.courtSurfaces}..remove(name);
+    final ratings = {...state.courtRatings}..remove(name);
+    final reviewCounts = {...state.courtReviewCounts}..remove(name);
     state = state.copyWith(
       courts: state.courts.where((court) => court != name).toList(),
       courtPrices: prices,
+      courtDescriptions: descriptions,
+      courtSurfaces: surfaces,
+      courtRatings: ratings,
+      courtReviewCounts: reviewCounts,
     );
     await _persist();
   }

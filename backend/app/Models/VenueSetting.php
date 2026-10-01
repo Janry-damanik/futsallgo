@@ -6,11 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class VenueSetting extends Model
 {
-    protected $fillable = ['name', 'address', 'phone', 'hourly_price', 'open_time', 'close_time'];
+    protected $fillable = [
+        'name', 'address', 'phone', 'hourly_price', 'open_time', 'close_time', 'facilities',
+    ];
 
     protected function casts(): array
     {
-        return ['hourly_price' => 'integer'];
+        return ['hourly_price' => 'integer', 'facilities' => 'array'];
     }
 
     public static function current(): self
@@ -22,6 +24,7 @@ class VenueSetting extends Model
             'hourly_price' => 180000,
             'open_time' => '06:00:00',
             'close_time' => '00:00:00',
+            'facilities' => [],
         ]);
     }
 }

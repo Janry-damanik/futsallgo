@@ -57,6 +57,69 @@ class AdminApiTest extends TestCase
             && $request['sortBy'] === 'publishedAt');
     }
 
+    public function test_admin_can_update_venue_facilities_and_court_description(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin Venue',
+            'email' => 'venue-admin@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        Court::create(['name' => 'Lapangan 1', 'price_per_hour' => 200000]);
+        Sanctum::actingAs($admin);
+
+        $this->putJson('/api/v1/facilities', [
+            'facilities' => ['Kamar mandi', 'Kantin', 'kamar mandi'],
+        ])->assertOk()->assertJsonCount(2, 'data.facilities');
+
+        $this->patchJson('/api/v1/courts/Lapangan%201', [
+            'surface' => 'Rumput sintetis',
+            'description' => 'Lapangan indoor dengan tribun.',
+        ])->assertOk()->assertJsonPath('data.description', 'Lapangan indoor dengan tribun.');
+
+        $this->getJson('/api/v1/settings')
+            ->assertOk()
+            ->assertJsonPath('data.facilities.0', 'Kamar mandi')
+            ->assertJsonPath('data.courtDescriptions.Lapangan 1', 'Lapangan indoor dengan tribun.')
+            ->assertJsonPath('data.courtSurfaces.Lapangan 1', 'Rumput sintetis');
+    }
+
+    public function test_customers_can_review_a_court_and_see_average_rating(): void
+    {
+        $court = Court::create(['name' => 'Lapangan 1', 'price_per_hour' => 200000]);
+        $firstCustomer = User::create([
+            'name' => 'Dina',
+            'email' => 'dina-review@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'customer',
+        ]);
+        $secondCustomer = User::create([
+            'name' => 'Raka',
+            'email' => 'raka-review@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'customer',
+        ]);
+
+        Sanctum::actingAs($firstCustomer);
+        $this->postJson('/api/v1/courts/Lapangan%201/reviews', [
+            'rating' => 5,
+            'comment' => 'Lapangan bersih dan nyaman.',
+        ])->assertOk()->assertJsonPath('data.averageRating', 5);
+
+        Sanctum::actingAs($secondCustomer);
+        $this->postJson('/api/v1/courts/Lapangan%201/reviews', [
+            'rating' => 3,
+            'comment' => 'Tempatnya cukup baik.',
+        ])->assertOk()
+            ->assertJsonPath('data.averageRating', 4)
+            ->assertJsonCount(2, 'data.reviews');
+
+        $this->getJson('/api/v1/settings')
+            ->assertOk()
+            ->assertJsonPath('data.courtRatings.Lapangan 1.average', 4)
+            ->assertJsonPath('data.courtRatings.Lapangan 1.count', 2);
+    }
+
     public function test_admin_can_upload_court_image_and_customers_cannot(): void
     {
         Storage::fake('public');

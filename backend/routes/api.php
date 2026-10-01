@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CourtReviewController;
 use App\Http\Controllers\Api\MidtransNotificationController;
 use App\Http\Controllers\Api\MidtransQrisController;
 use App\Http\Controllers\Api\PromoController;
@@ -18,6 +19,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/verification-code/resend', [AuthController::class, 'resendVerificationCode'])->middleware('throttle:3,1');
     Route::get('/settings', [VenueController::class, 'show']);
     Route::get('/courts', [VenueController::class, 'courts']);
+    Route::get('/courts/{court}/reviews', [CourtReviewController::class, 'index']);
     Route::get('/promos', [PromoController::class, 'index']);
     Route::get('/sports-news', SportsNewsController::class)->middleware('throttle:30,1');
     Route::post('/payments/midtrans/notification', MidtransNotificationController::class)->middleware('throttle:60,1');
@@ -36,6 +38,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/bookings/{booking}', [BookingController::class, 'update']);
             Route::delete('/bookings/{booking}', [BookingController::class, 'destroy']);
             Route::put('/settings', [VenueController::class, 'update']);
+            Route::put('/facilities', [VenueController::class, 'updateFacilities']);
             Route::post('/promos', [PromoController::class, 'store']);
             Route::put('/promos/{promo}', [PromoController::class, 'update']);
             Route::post('/promos/{promo}/image', [PromoController::class, 'uploadImage']);
@@ -47,5 +50,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/slots', [VenueController::class, 'storeSlot']);
             Route::delete('/slots/{slot}', [VenueController::class, 'destroySlot']);
         });
+
+        Route::post('/courts/{court}/reviews', [CourtReviewController::class, 'store'])
+            ->middleware('throttle:10,1');
     });
 });

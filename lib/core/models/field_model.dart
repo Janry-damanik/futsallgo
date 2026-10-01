@@ -8,6 +8,8 @@ class FieldModel {
     required this.category,
     required this.color,
     this.imageUrl,
+    this.averageRating = 0,
+    this.reviewCount = 0,
   });
 
   final String id;
@@ -16,4 +18,6 @@ class FieldModel {
   final String category;
   final Color color;
   final String? imageUrl;
+  final double averageRating;
+  final int reviewCount;
 }

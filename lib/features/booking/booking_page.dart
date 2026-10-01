@@ -7,6 +7,7 @@ import '../../core/models/booking_summary.dart';
 import '../../core/providers/admin_settings_provider.dart';
 import '../../core/providers/auth_provider.dart';
 import '../checkout/checkout_page.dart';
+import 'court_details_page.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
   const BookingPage({super.key, this.initialCourtName});
@@ -63,7 +64,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     if (courts.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Jadwal lapangan')),
-        body: const Center(child: Text('Belum ada lapangan yang tersedia.')),
+        body: RefreshIndicator(
+          onRefresh: () => ref.read(adminSettingsProvider.notifier).reload(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              SizedBox(
+                height: 280,
+                child: Center(child: Text('Belum ada lapangan yang tersedia.')),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -85,247 +97,278 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Jadwal lapangan')),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 20),
-        children: [
-          _CourtImagePlaceholder(
-            courtName: selectedCourt,
-            imageUrl: settings.courtImages[selectedCourt],
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  selectedCourt.toUpperCase(),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: const Color(0xFF192E50),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Futsal  ·  ${_rupiah(hourlyPrice)} / jam',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedCourt,
-                  decoration: const InputDecoration(
-                    labelText: 'Lapangan',
-                    prefixIcon: Icon(Icons.sports_soccer_rounded),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: courts
-                      .map(
-                        (court) =>
-                            DropdownMenuItem(value: court, child: Text(court)),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _selectedCourt = value);
-                    unawaited(_loadAvailability(courtName: value));
-                  },
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Jadwal',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: const Color(0xFF192E50),
-                          fontWeight: FontWeight.w800,
-                        ),
+      body: RefreshIndicator(
+        onRefresh: _refreshBooking,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 20),
+          children: [
+            _CourtImagePlaceholder(
+              courtName: selectedCourt,
+              imageUrl: settings.courtImages[selectedCourt],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CourtDetailsPage(
+                        courtName: selectedCourt,
+                        description:
+                            settings.courtDescriptions[selectedCourt] ?? '',
+                        surface: settings.courtSurfaces[selectedCourt] ?? '',
+                        imageUrl: settings.courtImages[selectedCourt],
                       ),
                     ),
-                    Text(
-                      _monthYear(_selectedDate),
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: const Color(0xFF192E50),
-                        fontWeight: FontWeight.w700,
-                      ),
+                  );
+                  if (mounted) {
+                    await ref.read(adminSettingsProvider.notifier).reload();
+                  }
+                },
+                icon: const Icon(Icons.info_outline_rounded),
+                label: const Text('Deskripsi & ulasan lapangan'),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    selectedCourt.toUpperCase(),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: const Color(0xFF192E50),
+                      fontWeight: FontWeight.w800,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 76,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _dates.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final date = _dates[index];
-                      return _DateOption(
-                        date: date,
-                        selected: _sameDate(date, _selectedDate),
-                        onTap: () {
-                          setState(() => _selectedDate = date);
-                          unawaited(_loadAvailability(date: date));
-                        },
-                      );
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Futsal  ·  ${_rupiah(hourlyPrice)} / jam',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedCourt,
+                    decoration: const InputDecoration(
+                      labelText: 'Lapangan',
+                      prefixIcon: Icon(Icons.sports_soccer_rounded),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: courts
+                        .map(
+                          (court) => DropdownMenuItem(
+                            value: court,
+                            child: Text(court),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _selectedCourt = value);
+                      unawaited(_loadAvailability(courtName: value));
                     },
                   ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Durasi bermain',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  children: _durations
-                      .map(
-                        (duration) => ChoiceChip(
-                          label: Text('$duration jam'),
-                          selected: duration == _selectedDuration,
-                          selectedColor: const Color(0xFF192E50),
-                          labelStyle: TextStyle(
-                            color: duration == _selectedDuration
-                                ? Colors.white
-                                : const Color(0xFF192E50),
-                            fontWeight: FontWeight.w700,
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Jadwal',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: const Color(0xFF192E50),
+                            fontWeight: FontWeight.w800,
                           ),
-                          onSelected: (_) {
-                            setState(() => _selectedDuration = duration);
-                            unawaited(
-                              _loadAvailability(durationHours: duration),
-                            );
-                          },
                         ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Pilih jam mulai',
-                        style: theme.textTheme.titleMedium?.copyWith(
+                      ),
+                      Text(
+                        _monthYear(_selectedDate),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: const Color(0xFF192E50),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 76,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _dates.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final date = _dates[index];
+                        return _DateOption(
+                          date: date,
+                          selected: _sameDate(date, _selectedDate),
+                          onTap: () {
+                            setState(() => _selectedDate = date);
+                            unawaited(_loadAvailability(date: date));
+                          },
+                        );
+                      },
                     ),
-                    Text(
-                      _loadingAvailability
-                          ? 'Memuat...'
-                          : '${slots.length} tersedia',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Durasi bermain',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    children: _durations
+                        .map(
+                          (duration) => ChoiceChip(
+                            label: Text('$duration jam'),
+                            selected: duration == _selectedDuration,
+                            selectedColor: const Color(0xFF192E50),
+                            labelStyle: TextStyle(
+                              color: duration == _selectedDuration
+                                  ? Colors.white
+                                  : const Color(0xFF192E50),
+                              fontWeight: FontWeight.w700,
+                            ),
+                            onSelected: (_) {
+                              setState(() => _selectedDuration = duration);
+                              unawaited(
+                                _loadAvailability(durationHours: duration),
+                              );
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Pilih jam mulai',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _loadingAvailability
+                            ? 'Memuat...'
+                            : '${slots.length} tersedia',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_loadingAvailability)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 22),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_availabilityError != null)
+                    Center(
+                      child: Column(
+                        children: [
+                          Text('Gagal memuat jam: $_availabilityError'),
+                          TextButton(
+                            onPressed: () => unawaited(_loadAvailability()),
+                            child: const Text('Coba lagi'),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (slots.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 22),
+                      child: Center(
+                        child: Text(
+                          'Tidak ada jam yang cocok untuk durasi ini.',
+                        ),
+                      ),
+                    )
+                  else
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: slots.length,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 9,
+                            crossAxisSpacing: 9,
+                            mainAxisExtent: 46,
+                          ),
+                      itemBuilder: (context, index) {
+                        final slot = slots[index];
+                        final selected = slot == selectedSlot;
+                        return OutlinedButton(
+                          onPressed: () => setState(() => _selectedSlot = slot),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: selected
+                                ? const Color(0xFF192E50)
+                                : Colors.white,
+                            foregroundColor: selected
+                                ? Colors.white
+                                : const Color(0xFF192E50),
+                            side: BorderSide(
+                              color: selected
+                                  ? const Color(0xFF192E50)
+                                  : const Color(0xFFD4DAE2),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(slot),
+                        );
+                      },
+                    ),
+                  const SizedBox(height: 18),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          _DetailRow(label: 'Lapangan', value: selectedCourt),
+                          _DetailRow(
+                            label: 'Tanggal',
+                            value: _fullDate(_selectedDate),
+                          ),
+                          _DetailRow(
+                            label: 'Waktu',
+                            value: selectedSlot == null
+                                ? '-'
+                                : _timeRange(selectedSlot, _selectedDuration),
+                          ),
+                          _DetailRow(
+                            label: 'Tarif per jam',
+                            value: _rupiah(hourlyPrice),
+                          ),
+                          _DetailRow(
+                            label: 'Durasi',
+                            value: '$_selectedDuration jam',
+                          ),
+                          const Divider(height: 20),
+                          _DetailRow(
+                            label: 'Total',
+                            value: _rupiah(total),
+                            bold: true,
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (_loadingAvailability)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 22),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_availabilityError != null)
-                  Center(
-                    child: Column(
-                      children: [
-                        Text('Gagal memuat jam: $_availabilityError'),
-                        TextButton(
-                          onPressed: () => unawaited(_loadAvailability()),
-                          child: const Text('Coba lagi'),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (slots.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 22),
-                    child: Center(
-                      child: Text('Tidak ada jam yang cocok untuk durasi ini.'),
-                    ),
-                  )
-                else
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: slots.length,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 9,
-                          crossAxisSpacing: 9,
-                          mainAxisExtent: 46,
-                        ),
-                    itemBuilder: (context, index) {
-                      final slot = slots[index];
-                      final selected = slot == selectedSlot;
-                      return OutlinedButton(
-                        onPressed: () => setState(() => _selectedSlot = slot),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: selected
-                              ? const Color(0xFF192E50)
-                              : Colors.white,
-                          foregroundColor: selected
-                              ? Colors.white
-                              : const Color(0xFF192E50),
-                          side: BorderSide(
-                            color: selected
-                                ? const Color(0xFF192E50)
-                                : const Color(0xFFD4DAE2),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: Text(slot),
-                      );
-                    },
                   ),
-                const SizedBox(height: 18),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _DetailRow(label: 'Lapangan', value: selectedCourt),
-                        _DetailRow(
-                          label: 'Tanggal',
-                          value: _fullDate(_selectedDate),
-                        ),
-                        _DetailRow(
-                          label: 'Waktu',
-                          value: selectedSlot == null
-                              ? '-'
-                              : _timeRange(selectedSlot, _selectedDuration),
-                        ),
-                        _DetailRow(
-                          label: 'Tarif per jam',
-                          value: _rupiah(hourlyPrice),
-                        ),
-                        _DetailRow(
-                          label: 'Durasi',
-                          value: '$_selectedDuration jam',
-                        ),
-                        const Divider(height: 20),
-                        _DetailRow(
-                          label: 'Total',
-                          value: _rupiah(total),
-                          bold: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
@@ -445,6 +488,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         _availabilityError = error.toString();
       });
     }
+  }
+
+  Future<void> _refreshBooking() async {
+    await ref.read(adminSettingsProvider.notifier).reload();
+    await _loadAvailability();
   }
 
   void _continueToCheckout(

@@ -75,12 +75,21 @@ class _SportsNewsSectionState extends ConsumerState<SportsNewsSection> {
             if (snapshot.hasError) {
               return SizedBox(
                 height: 190,
-                child: Center(
-                  child: TextButton.icon(
-                    onPressed: _refresh,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Berita gagal dimuat. Coba lagi.'),
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      snapshot.error.toString(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                    TextButton.icon(
+                      onPressed: _refresh,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Coba lagi'),
+                    ),
+                  ],
                 ),
               );
             }
