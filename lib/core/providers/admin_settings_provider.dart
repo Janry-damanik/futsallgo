@@ -427,16 +427,72 @@ class AdminSettingsController extends StateNotifier<AdminSettings> {
 
     try {
       final response = await _api.get('/settings');
-      final settings = AdminSettings.fromJson(
+      var settings = AdminSettings.fromJson(
         Map<String, dynamic>.from(response['data'] as Map),
       );
-      final promoResponse = await _api.get('/promos');
-      final promos = (promoResponse['data'] as List<dynamic>)
-          .map(
-            (promo) =>
-                PromoBanner.fromJson(Map<String, dynamic>.from(promo as Map)),
-          )
-          .toList();
+
+      try {
+        final courtsResponse = await _api.get('/courts');
+        final records = (courtsResponse['data'] as List<dynamic>)
+            .whereType<Map>()
+            .map((court) => Map<String, dynamic>.from(court))
+            .toList();
+        final courtNames = records
+            .map((court) => court['name']?.toString() ?? '')
+            .where((name) => name.isNotEmpty)
+            .toList();
+        final courtPrices = <String, int>{};
+        final courtImages = <String, String>{};
+        final courtDescriptions = <String, String>{};
+        final courtSurfaces = <String, String>{};
+        final courtRatings = <String, double>{};
+        final courtReviewCounts = <String, int>{};
+
+        for (final court in records) {
+          final name = court['name']?.toString() ?? '';
+          if (name.isEmpty) continue;
+          courtPrices[name] =
+              int.tryParse(court['hourlyPrice']?.toString() ?? '') ??
+              settings.hourlyPrice;
+          final imageUrl = court['imageUrl']?.toString();
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            courtImages[name] = imageUrl;
+          }
+          courtDescriptions[name] = court['description']?.toString() ?? '';
+          courtSurfaces[name] = court['surface']?.toString() ?? '';
+          courtRatings[name] =
+              double.tryParse(court['averageRating']?.toString() ?? '') ?? 0;
+          courtReviewCounts[name] =
+              int.tryParse(court['reviewCount']?.toString() ?? '') ?? 0;
+        }
+
+        settings = settings.copyWith(
+          courts: courtNames,
+          courtPrices: courtPrices,
+          courtImages: courtImages,
+          courtDescriptions: courtDescriptions,
+          courtSurfaces: courtSurfaces,
+          courtRatings: courtRatings,
+          courtReviewCounts: courtReviewCounts,
+        );
+      } on Exception {
+        // Keep the venue data from /settings when the court endpoint is unavailable.
+      }
+
+      var promos = settings.promos;
+      try {
+        final promoResponse = await _api.get('/promos');
+        promos = (promoResponse['data'] as List<dynamic>)
+            .map(
+              (promo) => PromoBanner.fromJson(
+                Map<String, dynamic>.from(promo as Map),
+              ),
+            )
+            .toList();
+      } on Exception {
+        // Keep cached promos when their endpoint is temporarily unavailable.
+      }
+
       state = settings.copyWith(promos: promos);
       await _persist();
     } on Exception {

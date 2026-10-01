@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,10 +57,14 @@ class _CourtDetailsPageState extends ConsumerState<CourtDetailsPage> {
           SizedBox(
             height: 230,
             child: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
-                ? Image.network(
-                    widget.imageUrl!,
+                ? CachedNetworkImage(
+                  imageUrl: widget.imageUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const _CourtImageFallback(),
+                  memCacheWidth: 1200,
+                  maxWidthDiskCache: 1600,
+                  fadeInDuration: const Duration(milliseconds: 120),
+                  placeholder: (_, _) => const _CourtImageFallback(),
+                  errorWidget: (_, _, _) => const _CourtImageFallback(),
                   )
                 : const _CourtImageFallback(),
           ),

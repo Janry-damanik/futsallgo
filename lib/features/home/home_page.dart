@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -556,10 +557,18 @@ class _FieldCard extends StatelessWidget {
                         if (field.imageUrl case final imageUrl?
                             when imageUrl.isNotEmpty)
                           Positioned.fill(
-                            child: Image.network(
-                              imageUrl,
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Align(
+                              memCacheWidth: 720,
+                              maxWidthDiskCache: 1200,
+                              fadeInDuration: const Duration(milliseconds: 120),
+                              placeholder: (_, _) => DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(colors: imageColors),
+                                ),
+                              ),
+                              errorWidget: (_, _, _) => Align(
                                 alignment: Alignment.bottomRight,
                                 child: Icon(
                                   Icons.sports_soccer_rounded,

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -631,10 +632,22 @@ class _CourtImagePlaceholder extends StatelessWidget {
         children: [
           if (imageUrl case final url?)
             Positioned.fill(
-              child: Image.network(
-                url,
+              child: CachedNetworkImage(
+                imageUrl: url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const ColoredBox(
+                memCacheWidth: 1200,
+                maxWidthDiskCache: 1600,
+                fadeInDuration: const Duration(milliseconds: 120),
+                placeholder: (_, _) => const ColoredBox(
+                  color: Color(0xFF101619),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF00D47A),
+                    ),
+                  ),
+                ),
+                errorWidget: (_, _, _) => const ColoredBox(
                   color: Color(0xFF176651),
                   child: Icon(
                     Icons.sports_soccer_rounded,

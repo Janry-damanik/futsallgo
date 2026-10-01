@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -319,12 +320,20 @@ Widget _courtImageThumbnail(String? imageUrl) {
 
   return ClipRRect(
     borderRadius: BorderRadius.circular(6),
-    child: Image.network(
-      imageUrl,
+    child: CachedNetworkImage(
+      imageUrl: imageUrl,
       width: 52,
       height: 52,
       fit: BoxFit.cover,
-      errorBuilder: (_, _, _) => const Icon(Icons.sports_soccer_rounded),
+      memCacheWidth: 200,
+      maxWidthDiskCache: 300,
+      fadeInDuration: const Duration(milliseconds: 100),
+      placeholder: (_, _) => const SizedBox(
+        width: 52,
+        height: 52,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      errorWidget: (_, _, _) => const Icon(Icons.sports_soccer_rounded),
     ),
   );
 }

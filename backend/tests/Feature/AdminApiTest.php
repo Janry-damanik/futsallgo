@@ -232,6 +232,21 @@ class AdminApiTest extends TestCase
         Storage::disk('public')->assertExists($imagePath);
     }
 
+    public function test_uploaded_court_images_are_served_with_long_lived_cache_headers(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->putFileAs(
+            'courts',
+            UploadedFile::fake()->image('legacy-court.jpg'),
+            'legacy-court.jpg',
+        );
+
+        $this->get('/storage/courts/legacy-court.jpg')
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'immutable, max-age=31536000, public')
+            ->assertHeader('Content-Type', 'image/jpeg');
+    }
+
     public function test_web_admin_can_create_court_with_image_in_separate_form(): void
     {
         Storage::fake('public');
