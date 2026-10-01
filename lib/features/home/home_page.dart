@@ -4,11 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/models/field_model.dart';
 import '../../core/providers/admin_settings_provider.dart';
-import '../../core/providers/auth_provider.dart';
 import '../../core/router/routes.dart';
 import '../booking/booking_page.dart';
 import '../history/history_page.dart';
-import '../profile/profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,37 +18,38 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _pages = <Widget>[
-    _HomeTab(),
-    BookingPage(),
-    HistoryPage(),
-    ProfilePage(),
-  ];
-
-  void _onItemTapped(int index) {
+  void _selectTab(int index) {
     setState(() => _selectedIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
+    final pages = <Widget>[
+      _HomeTab(
+        onOpenBooking: () => _selectTab(1),
+        onOpenTickets: () => _selectTab(2),
+      ),
+      const BookingPage(),
+      const HistoryPage(),
+    ];
+
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _pages),
+      body: IndexedStack(index: _selectedIndex, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
+        onDestinationSelected: _selectTab,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_rounded), label: 'Home'),
+          NavigationDestination(
+            icon: Icon(Icons.home_rounded),
+            label: 'Beranda',
+          ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_rounded),
             label: 'Booking',
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_rounded),
-            label: 'Riwayat',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profil',
+            icon: Icon(Icons.confirmation_number_outlined),
+            label: 'Tiket',
           ),
         ],
       ),
@@ -59,7 +58,10 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _HomeTab extends ConsumerStatefulWidget {
-  const _HomeTab();
+  const _HomeTab({required this.onOpenBooking, required this.onOpenTickets});
+
+  final VoidCallback onOpenBooking;
+  final VoidCallback onOpenTickets;
 
   @override
   ConsumerState<_HomeTab> createState() => _HomeTabState();
@@ -67,47 +69,155 @@ class _HomeTab extends ConsumerStatefulWidget {
 
 class _HomeTabState extends ConsumerState<_HomeTab> {
   final TextEditingController _searchController = TextEditingController();
+  final PageController _promoController = PageController();
+  int _promoIndex = 0;
+  bool _sortByPrice = false;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _promoController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accountName = ref.watch(authUserProvider).valueOrNull?.name;
     final settings = ref.watch(adminSettingsProvider);
-    final greetingName = accountName == null || accountName.trim().isEmpty
-        ? 'Teman'
-        : accountName.trim();
-    final venue = FieldModel(
-      id: 'managed-venue',
-      name: settings.venueName,
-      location: settings.address,
-      price: _rupiah(settings.hourlyPrice),
-      rating: 4.8,
-      category: 'Futsal',
-      color: const Color(0xFF1F7A8C),
+    final promoCount = settings.promos.isEmpty ? 2 : settings.promos.length;
+    final activePromoIndex = _promoIndex < promoCount
+        ? _promoIndex
+        : promoCount - 1;
+    final fields = settings.courts.map(
+      (court) => FieldModel(
+        id: court,
+        name: court,
+        price: _rupiah(settings.courtPrices[court] ?? settings.hourlyPrice),
+        category: 'Futsal',
+        color: const Color(0xFF1F7A8C),
+        imageUrl: settings.courtImages[court],
+      ),
     );
-    final filteredFields = [venue].where((field) {
+    final filteredFields = fields.where((field) {
       final query = _searchController.text.toLowerCase().trim();
       if (query.isEmpty) {
         return true;
       }
       return field.name.toLowerCase().contains(query) ||
-          field.location.toLowerCase().contains(query) ||
           field.category.toLowerCase().contains(query);
     }).toList();
+    if (_sortByPrice) {
+      filteredFields.sort((first, second) {
+        final firstPrice =
+            settings.courtPrices[first.id] ?? settings.hourlyPrice;
+        final secondPrice =
+            settings.courtPrices[second.id] ?? settings.hourlyPrice;
+        return firstPrice.compareTo(secondPrice);
+      });
+    }
 
     return SafeArea(
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Cari lapangan',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: const Color(0xFFF0F2F5),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(28),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Bantuan',
+                  onPressed: () => _showSupport(context, settings.phone),
+                  icon: const Icon(Icons.headset_mic_outlined),
+                ),
+                IconButton(
+                  tooltip: 'Profil',
+                  onPressed: () => context.push(AppRoutes.profile),
+                  icon: const Icon(Icons.person_outline_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Tiket saya',
+                  onPressed: widget.onOpenTickets,
+                  icon: const Icon(Icons.confirmation_number_outlined),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 90),
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
               children: [
+                SizedBox(
+                  height: 178,
+                  child: PageView.builder(
+                    controller: _promoController,
+                    onPageChanged: (index) =>
+                        setState(() => _promoIndex = index),
+                    itemCount: promoCount,
+                    itemBuilder: (context, index) {
+                      if (settings.promos.isNotEmpty) {
+                        final promo = settings.promos[index];
+                        return _PromoSlide(
+                          eyebrow: promo.eyebrow,
+                          title: promo.title,
+                          subtitle: promo.subtitle,
+                          buttonLabel: promo.buttonLabel,
+                          imageUrl: promo.imageUrl,
+                          icon: Icons.sports_soccer_rounded,
+                          onPressed: widget.onOpenBooking,
+                        );
+                      }
+                      return _PromoSlide(
+                        title: index == 0
+                            ? 'Waktunya masuk lapangan'
+                            : 'Satu tim, satu tujuan',
+                        subtitle: index == 0
+                            ? 'Pilih sesi berikutnya bersama timmu.'
+                            : 'Siapkan jadwal mainmu hari ini.',
+                        icon: index == 0
+                            ? Icons.sports_soccer_rounded
+                            : Icons.stadium_rounded,
+                        onPressed: widget.onOpenBooking,
+                        alternate: index.isOdd,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    promoCount,
+                    (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: activePromoIndex == index ? 20 : 6,
+                      height: 6,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                        color: activePromoIndex == index
+                            ? const Color(0xFF192E50)
+                            : const Color(0xFFD5DAE2),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
                 Row(
                   children: [
                     Expanded(
@@ -115,146 +225,68 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Halo, $greetingName',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
+                            'Lapangan tersedia',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
-                            'Pesan jadwal ${settings.venueName}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
+                            '${filteredFields.length} pilihan',
+                            style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      child: const Icon(Icons.notifications_none_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        theme.colorScheme.primary,
-                        theme.colorScheme.secondary,
+                    PopupMenuButton<bool>(
+                      tooltip: 'Urutkan lapangan',
+                      initialValue: _sortByPrice,
+                      onSelected: (value) =>
+                          setState(() => _sortByPrice = value),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: false, child: Text('Rekomendasi')),
+                        PopupMenuItem(
+                          value: true,
+                          child: Text('Harga terendah'),
+                        ),
                       ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: 0.25,
-                        ),
-                        blurRadius: 18,
-                        offset: const Offset(0, 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.tune_rounded, size: 19),
+                          const SizedBox(width: 5),
+                          Text(_sortByPrice ? 'Termurah' : 'Urutkan'),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Booking Lapangan',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'Jadwal cepat, sistem mudah, dan harga transparan.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      FilledButton.tonal(
-                        onPressed: () => context.push(AppRoutes.booking),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: theme.colorScheme.primary,
-                        ),
-                        child: const Text('Pesan sekarang'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Cari jadwal yang kamu butuhkan',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    filled: true,
-                    fillColor: theme.colorScheme.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Layanan venue',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: const [
-                    _FilterChip(label: 'Lapangan futsal'),
-                    _FilterChip(label: 'Parkir tersedia'),
-                    _FilterChip(label: 'Kamar mandi'),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Venue kami',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => context.push(AppRoutes.booking),
-                      child: const Text('Lihat jadwal'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                ...filteredFields.map(
-                  (field) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _FieldCard(
-                      field: field,
-                      onPressed: () => context.push(AppRoutes.booking),
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 16),
                 if (filteredFields.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 24),
+                    padding: const EdgeInsets.symmetric(vertical: 42),
                     child: Text(
                       'Lapangan tidak ditemukan',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyLarge,
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 292,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: filteredFields.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) => _FieldCard(
+                        field: filteredFields[index],
+                        index: index,
+                        onPressed: () => context.push(
+                          AppRoutes.booking,
+                          extra: filteredFields[index].id,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -266,131 +298,310 @@ class _HomeTabState extends ConsumerState<_HomeTab> {
   }
 
   String _rupiah(int value) =>
-      'Rp ${value.toString().replaceAllMapped(RegExp(r'(?=(\d{3})+(?!\d))'), (_) => '.')} / jam';
+      'Rp ${value.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')} / jam';
+
+  void _showSupport(BuildContext context, String phone) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Bantuan'),
+        content: Text('Hubungi pengelola di $phone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label});
+class _PromoSlide extends StatelessWidget {
+  const _PromoSlide({
+    this.eyebrow = 'FUTSALGO  /  LAPANGAN',
+    required this.title,
+    required this.subtitle,
+    this.buttonLabel = 'Pesan lapangan',
+    required this.icon,
+    required this.onPressed,
+    this.alternate = false,
+    this.imageUrl,
+  });
 
-  final String label;
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+  final String buttonLabel;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool alternate;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final background = alternate
+        ? const Color(0xFF125C4E)
+        : const Color(0xFF192E50);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: background,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                background,
+                alternate ? const Color(0xFF27826D) : const Color(0xFF31547A),
+              ],
+            ),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (imageUrl case final url? when url.isNotEmpty)
+                Image.network(
+                  url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => ColoredBox(color: background),
+                ),
+              if (imageUrl != null && imageUrl!.isNotEmpty)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.72),
+                        Colors.black.withValues(alpha: 0.12),
+                      ],
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            eyebrow,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: const Color(0xFFFFD341),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          SizedBox(
+                            height: 34,
+                            child: FilledButton(
+                              onPressed: onPressed,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFD341),
+                                foregroundColor: const Color(0xFF192E50),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                              ),
+                              child: Text(buttonLabel),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (imageUrl == null || imageUrl!.isEmpty) ...[
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 96,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(
+                              Icons.stadium_rounded,
+                              size: 94,
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
+                            Icon(
+                              icon,
+                              size: 62,
+                              color: const Color(0xFFFFD341),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Text(label),
     );
   }
 }
 
 class _FieldCard extends StatelessWidget {
-  const _FieldCard({required this.field, required this.onPressed});
+  const _FieldCard({
+    required this.field,
+    required this.index,
+    required this.onPressed,
+  });
 
   final FieldModel field;
+  final int index;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 92,
-              height: 92,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: LinearGradient(
-                  colors: [field.color, theme.colorScheme.tertiary],
-                ),
-              ),
-              child: const Icon(
-                Icons.sports_soccer_rounded,
-                color: Colors.white,
-                size: 42,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          field.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
+    final imageColors = index.isEven
+        ? const [Color(0xFF176651), Color(0xFF2D9673)]
+        : const [Color(0xFF243B5E), Color(0xFF517A8B)];
+
+    return SizedBox(
+      width: 204,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: InkWell(
+          onTap: onPressed,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: imageColors,
+                      ),
+                    ),
+                    child: Stack(
+                      children: [
+                        if (field.imageUrl case final imageUrl?
+                            when imageUrl.isNotEmpty)
+                          Positioned.fill(
+                            child: Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Align(
+                                alignment: Alignment.bottomRight,
+                                child: Icon(
+                                  Icons.sports_soccer_rounded,
+                                  size: 142,
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Positioned(
+                            right: -8,
+                            bottom: -15,
+                            child: Icon(
+                              Icons.sports_soccer_rounded,
+                              size: 142,
+                              color: Colors.white.withValues(alpha: 0.16),
+                            ),
+                          ),
+                        Positioned(
+                          left: 12,
+                          top: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD341),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'FUTSAL',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: const Color(0xFF192E50),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      const Icon(
-                        Icons.star_rounded,
-                        color: Colors.amber,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(field.rating.toStringAsFixed(1)),
-                    ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined, size: 16),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          field.location,
-                          style: theme.textTheme.bodySmall,
-                        ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      field.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        field.price,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      field.price,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF176651),
+                        fontWeight: FontWeight.w800,
                       ),
-                      FilledButton(
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 34,
+                      child: FilledButton(
                         onPressed: onPressed,
                         style: FilledButton.styleFrom(
-                          minimumSize: const Size(88, 34),
+                          backgroundColor: const Color(0xFF192E50),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.zero,
                         ),
                         child: const Text('Pesan'),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -13,8 +13,8 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final user = ref.watch(authUserProvider).valueOrNull;
-    final name = user?.name ?? 'Fadli Pratama';
-    final email = user?.email ?? 'fadhli@example.com';
+    final name = user?.name ?? '-';
+    final email = user?.email ?? '-';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),
@@ -54,7 +54,7 @@ class ProfilePage extends ConsumerWidget {
           _ProfileTile(
             title: 'Edit profil',
             icon: Icons.edit_rounded,
-            onTap: () => _showEditProfile(context, name),
+            onTap: () => _showEditProfile(context, ref, name),
           ),
           _ProfileTile(
             title: 'Metode pembayaran',
@@ -85,7 +85,11 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  void _showEditProfile(BuildContext context, String currentName) {
+  void _showEditProfile(
+    BuildContext context,
+    WidgetRef ref,
+    String currentName,
+  ) {
     final controller = TextEditingController(text: currentName);
     showDialog<void>(
       context: context,
@@ -101,11 +105,24 @@ class ProfilePage extends ConsumerWidget {
             child: const Text('Batal'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
               Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profil berhasil diperbarui')),
-              );
+              try {
+                await ref.read(authUserProvider.notifier).updateProfile(name);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Profil berhasil diperbarui')),
+                  );
+                }
+              } on Exception catch (error) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(error.toString())));
+                }
+              }
             },
             child: const Text('Simpan'),
           ),
@@ -194,7 +211,7 @@ class ProfilePage extends ConsumerWidget {
       builder: (_) => const AlertDialog(
         title: Text('Bantuan'),
         content: Text(
-          'Pilih jadwal, bayar melalui QRIS, lalu cek status booking di menu Riwayat. Untuk bantuan venue, hubungi pengelola Arena Hijau Futsal.',
+          'Pilih lapangan dan jadwal, bayar melalui QRIS, lalu cek status booking di menu Riwayat. Hubungi pengelola jika butuh bantuan.',
         ),
         actions: [CloseButton()],
       ),
@@ -215,17 +232,17 @@ class _ProfileTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: theme.colorScheme.primary),
-        title: Text(title),
-        trailing: const Icon(Icons.chevron_right_rounded),
+        child: ListTile(
+          onTap: onTap,
+          leading: Icon(icon, color: theme.colorScheme.primary),
+          title: Text(title),
+          trailing: const Icon(Icons.chevron_right_rounded),
+        ),
       ),
     );
   }

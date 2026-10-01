@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -10,14 +9,14 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/router/routes.dart';
 import '../../core/theme/app_colors.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scale;
@@ -43,25 +42,15 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _continueToApp() async {
     try {
-      if (Firebase.apps.isEmpty) {
-        if (mounted) context.go(AppRoutes.home);
-        return;
-      }
-      final user = FirebaseAuth.instance.currentUser;
-      await user?.reload();
+      final user = await ref.read(authUserProvider.notifier).waitForSession();
       if (!mounted) return;
-      final isAdmin = user == null
-          ? false
-          : await AuthController.isAdminUser(user);
       context.go(
-        user != null && user.emailVerified
-            ? (isAdmin ? AppRoutes.admin : AppRoutes.home)
-            : AppRoutes.login,
+        user == null
+            ? AppRoutes.login
+            : (user.isAdmin ? AppRoutes.admin : AppRoutes.home),
       );
-    } on FirebaseException {
-      if (mounted) context.go(AppRoutes.home);
     } catch (_) {
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) context.go(AppRoutes.login);
     }
   }
 

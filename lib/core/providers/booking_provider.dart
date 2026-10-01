@@ -1,77 +1,58 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/booking_summary.dart';
-import '../theme/theme_mode_controller.dart';
+import '../services/api_service.dart';
+import 'auth_provider.dart';
 
 final bookingProvider =
     StateNotifierProvider<BookingController, List<BookingSummary>>((ref) {
-      final prefs = ref.watch(sharedPreferencesProvider);
-      return BookingController(prefs);
+      return BookingController(ref.watch(apiServiceProvider));
     });
 
 class BookingController extends StateNotifier<List<BookingSummary>> {
-  BookingController(this._prefs) : super([]) {
+  BookingController(this._api) : super([]) {
     _load();
   }
 
-  final SharedPreferences _prefs;
-  static const _key = 'bookings';
+  final ApiService _api;
 
-  Future<void> addBooking(BookingSummary booking) async {
-    final items = [...state, booking];
-    state = items;
-    await _prefs.setString(
-      _key,
-      jsonEncode(items.map((e) => e.toJson()).toList()),
-    );
-  }
+  Future<void> refresh() => _load();
 
   Future<void> updateStatus(int index, String status) async {
     if (index < 0 || index >= state.length) return;
+    final booking = state[index];
+    if (booking.id == null) return;
+    final response = await _api.patch('/bookings/${booking.id}', {
+      'status': status,
+    });
     final items = [...state];
-    final booking = items[index];
-    items[index] = BookingSummary(
-      fieldName: booking.fieldName,
-      fieldLocation: booking.fieldLocation,
-      date: booking.date,
-      time: booking.time,
-      price: booking.price,
-      total: booking.total,
-      status: status,
+    items[index] = BookingSummary.fromJson(
+      Map<String, dynamic>.from(response['data'] as Map),
     );
     state = items;
-    await _persist(items);
   }
 
   Future<void> removeBooking(int index) async {
     if (index < 0 || index >= state.length) return;
+    final booking = state[index];
+    if (booking.id == null) return;
+    await _api.delete('/bookings/${booking.id}');
     final items = [...state]..removeAt(index);
     state = items;
-    await _persist(items);
-  }
-
-  Future<void> _persist(List<BookingSummary> items) async {
-    await _prefs.setString(
-      _key,
-      jsonEncode(items.map((e) => e.toJson()).toList()),
-    );
   }
 
   Future<void> _load() async {
-    final raw = _prefs.getString(_key);
-    if (raw == null || raw.isEmpty) {
-      return;
+    try {
+      final response = await _api.get('/bookings');
+      final items = (response['data'] as List<dynamic>)
+          .map(
+            (item) =>
+                BookingSummary.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
+          .toList();
+      state = items;
+    } on Exception {
+      state = [];
     }
-
-    final decoded = jsonDecode(raw) as List<dynamic>;
-    state = decoded
-        .map(
-          (item) =>
-              BookingSummary.fromJson(Map<String, dynamic>.from(item as Map)),
-        )
-        .toList();
   }
 }

@@ -5,13 +5,11 @@ import '../../features/auth/login_page.dart';
 import '../../features/admin/admin_page.dart';
 import '../../features/booking/booking_page.dart';
 import '../../features/checkout/checkout_page.dart';
-import '../../features/field/field_detail_page.dart';
 import '../../features/history/history_page.dart';
 import '../../features/home/home_page.dart';
 import '../../features/profile/profile_page.dart';
 import '../../features/splash/splash_screen.dart';
 import '../models/booking_summary.dart';
-import '../models/field_model.dart';
 import 'routes.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -36,17 +34,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.booking,
-        builder: (context, state) => const BookingPage(),
-      ),
-      GoRoute(
-        path: AppRoutes.fieldDetail,
-        builder: (context, state) => FieldDetailPage(field: sampleFields.first),
+        builder: (context, state) =>
+            BookingPage(initialCourtName: state.extra as String?),
       ),
       GoRoute(
         path: AppRoutes.checkout,
         builder: (context, state) => const CheckoutPage(
           booking: BookingSummary(
-            fieldName: 'Arena Hijau Futsal',
+            fieldName: 'Lapangan 1',
             fieldLocation: 'Jl. Merdeka No. 12',
             date: 'Senin, 12 Agustus',
             time: '18.00 - 19.00',
