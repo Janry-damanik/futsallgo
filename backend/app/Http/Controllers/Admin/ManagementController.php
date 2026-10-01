@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BlockedSlot;
 use App\Models\Booking;
 use App\Models\Court;
+use App\Models\CourtReview;
 use App\Models\PromoBanner;
 use App\Models\User;
 use App\Models\VenueSetting;
@@ -26,6 +27,74 @@ class ManagementController extends Controller
             ->latest()->paginate(12)->withQueryString();
 
         return view('admin.bookings', compact('bookings'));
+    }
+
+    public function finance(Request $request)
+    {
+        $filters = $request->validate([
+            'from' => ['nullable', 'date'],
+            'until' => ['nullable', 'date', 'after_or_equal:from'],
+            'status' => ['nullable', 'in:Menunggu pembayaran,Dikonfirmasi,Lunas via Midtrans,Selesai,Dibatalkan'],
+            'q' => ['nullable', 'string', 'max:120'],
+        ]);
+        $from = $filters['from'] ?? now()->subDays(29)->toDateString();
+        $until = $filters['until'] ?? now()->toDateString();
+        $period = Booking::query()
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $until);
+        $paidStatuses = ['Dikonfirmasi', 'Selesai', 'Lunas via Midtrans'];
+        $paid = (clone $period)->whereIn('status', $paidStatuses);
+        $pending = (clone $period)->where('status', 'Menunggu pembayaran');
+        $orders = (clone $period)
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $filters['status']))
+            ->when($request->filled('q'), fn ($query) => $query->where(function ($query) use ($filters) {
+                $term = '%'.$filters['q'].'%';
+                $query->where('code', 'like', $term)
+                    ->orWhere('customer_name', 'like', $term)
+                    ->orWhere('customer_email', 'like', $term)
+                    ->orWhere('field_name', 'like', $term)
+                    ->orWhere('payment_order_id', 'like', $term);
+            }))
+            ->latest('created_at')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('admin.finance', [
+            'orders' => $orders,
+            'from' => $from,
+            'until' => $until,
+            'status' => $filters['status'] ?? '',
+            'query' => $filters['q'] ?? '',
+            'orderCount' => (clone $period)->count(),
+            'paidCount' => (clone $paid)->count(),
+            'revenue' => (clone $paid)->sum('amount'),
+            'pendingCount' => (clone $pending)->count(),
+            'pendingAmount' => (clone $pending)->sum('amount'),
+        ]);
+    }
+
+    public function reviews(Request $request)
+    {
+        $filters = $request->validate([
+            'court_id' => ['nullable', 'integer', 'exists:courts,id'],
+            'rating' => ['nullable', 'integer', 'between:1,5'],
+        ]);
+        $reviews = CourtReview::query()
+            ->with(['court:id,name', 'user:id,name,email'])
+            ->when($request->filled('court_id'), fn ($query) => $query->where('court_id', $filters['court_id']))
+            ->when($request->filled('rating'), fn ($query) => $query->where('rating', $filters['rating']))
+            ->latest('created_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.reviews', [
+            'reviews' => $reviews,
+            'courts' => Court::query()->orderBy('name')->get(['id', 'name']),
+            'courtId' => $filters['court_id'] ?? '',
+            'rating' => $filters['rating'] ?? '',
+            'averageRating' => (float) (CourtReview::query()->avg('rating') ?? 0),
+            'reviewCount' => CourtReview::query()->count(),
+        ]);
     }
 
     public function updateBooking(Request $request, Booking $booking)

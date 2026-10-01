@@ -6,6 +6,7 @@ use App\Mail\EmailVerificationCodeMail;
 use App\Models\BlockedSlot;
 use App\Models\Booking;
 use App\Models\Court;
+use App\Models\CourtReview;
 use App\Models\PromoBanner;
 use App\Models\User;
 use App\Models\VenueSetting;
@@ -321,6 +322,59 @@ class AdminApiTest extends TestCase
         $this->assertSame([], VenueSetting::current()->fresh()->facilities);
     }
 
+    public function test_admin_can_view_financial_order_details_and_customer_reviews(): void
+    {
+        $admin = User::create([
+            'name' => 'Finance Admin',
+            'email' => 'finance-admin@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
+        $customer = User::create([
+            'name' => 'Review Customer',
+            'email' => 'review-customer@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'customer',
+        ]);
+        $court = Court::create(['name' => 'Lapangan Keuangan', 'price_per_hour' => 250000]);
+        Booking::create([
+            'code' => 'FGO-FINANCE-001',
+            'user_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_email' => $customer->email,
+            'court_id' => $court->id,
+            'field_name' => $court->name,
+            'booking_date' => '2 Oktober 2026',
+            'booking_time' => '18.00 - 19.00',
+            'duration_hours' => 1,
+            'amount' => 250000,
+            'status' => 'Lunas via Midtrans',
+            'payment_order_id' => 'ORDER-FINANCE-001',
+        ]);
+        CourtReview::create([
+            'court_id' => $court->id,
+            'user_id' => $customer->id,
+            'rating' => 5,
+            'comment' => 'Lapangan bersih dan nyaman.',
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/finance')
+            ->assertOk()
+            ->assertSee('Keuangan & pesanan', false)
+            ->assertSee('Rp 250.000')
+            ->assertSee('FGO-FINANCE-001')
+            ->assertSee('ORDER-FINANCE-001')
+            ->assertSee('Review Customer');
+
+        $this->get('/admin/reviews')
+            ->assertOk()
+            ->assertSee('Rating & ulasan', false)
+            ->assertSee('Lapangan Keuangan')
+            ->assertSee('Lapangan bersih dan nyaman.')
+            ->assertSee('5 / 5');
+    }
+
     public function test_web_admin_can_manage_home_promos(): void
     {
         Storage::fake('public');
@@ -454,6 +508,34 @@ class AdminApiTest extends TestCase
                 ->assertJsonPath('data.current.availableCourts.0', 'Lapangan 2')
                 ->assertJsonPath('data.hours.2.occupied', 1)
                 ->assertJsonPath('data.hours.3.status', 'Kosong');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_admin_dashboard_reports_zero_current_counts_before_opening(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-30 05:30:00', 'Asia/Jakarta'));
+
+        try {
+            VenueSetting::current()->update([
+                'open_time' => '06:00:00',
+                'close_time' => '21:00:00',
+            ]);
+            $admin = User::create([
+                'name' => 'Admin Early',
+                'email' => 'admin-early-occupancy@example.com',
+                'password' => Hash::make('password123'),
+                'role' => 'admin',
+            ]);
+            Court::create(['name' => 'Lapangan Pagi', 'is_active' => true]);
+
+            $this->actingAs($admin)
+                ->getJson('/admin/dashboard/occupancy')
+                ->assertOk()
+                ->assertJsonPath('data.current.label', 'Di luar jam operasional')
+                ->assertJsonPath('data.current.occupied', 0)
+                ->assertJsonPath('data.current.available', 0);
         } finally {
             Carbon::setTestNow();
         }

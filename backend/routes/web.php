@@ -22,6 +22,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/occupancy', [DashboardController::class, 'occupancy'])->name('dashboard.occupancy');
     Route::get('/bookings', [ManagementController::class, 'bookings'])->name('bookings');
+    Route::get('/finance', [ManagementController::class, 'finance'])->name('finance');
+    Route::get('/reviews', [ManagementController::class, 'reviews'])->name('reviews');
     Route::patch('/bookings/{booking}', [ManagementController::class, 'updateBooking'])->name('bookings.update');
     Route::delete('/bookings/{booking}', [ManagementController::class, 'deleteBooking'])->name('bookings.delete');
     Route::get('/courts', [ManagementController::class, 'courts'])->name('courts');

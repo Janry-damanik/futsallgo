@@ -12,6 +12,8 @@
 @php($navigation = [
     ['admin.dashboard', '⌂', 'Ringkasan'],
     ['admin.bookings', '▤', 'Pemesanan'],
+    ['admin.finance', 'Rp', 'Keuangan'],
+    ['admin.reviews', '☆', 'Ulasan'],
     ['admin.courts', '⚽', 'Lapangan'],
     ['admin.promos', '▧', 'Banner'],
     ['admin.customers', '♙', 'Pelanggan'],

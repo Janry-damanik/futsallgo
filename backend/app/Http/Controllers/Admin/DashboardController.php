@@ -8,6 +8,7 @@ use App\Models\Court;
 use App\Models\User;
 use App\Models\VenueSetting;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
@@ -106,6 +107,19 @@ class DashboardController extends Controller
             }
         }
 
+        $current ??= [
+            'label' => 'Di luar jam operasional',
+            'start' => null,
+            'occupied' => 0,
+            'available' => 0,
+            'occupiedCourts' => [],
+            'availableCourts' => [],
+            'status' => count($courtNames) === 0
+                ? 'Tidak ada lapangan aktif'
+                : 'Di luar jam operasional',
+            'isCurrent' => false,
+        ];
+
         return [
             'updatedAt' => $now->toIso8601String(),
             'courtCount' => count($courtNames),
@@ -114,7 +128,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function todayBookingDateKeys(\Illuminate\Support\Carbon $date): array
+    private function todayBookingDateKeys(Carbon $date): array
     {
         $weekdays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         $months = [
