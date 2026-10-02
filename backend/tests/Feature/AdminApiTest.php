@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Court;
 use App\Models\CourtReview;
 use App\Models\PromoBanner;
+use App\Models\StoredImage;
 use App\Models\User;
 use App\Models\VenueSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,7 +20,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -123,7 +123,6 @@ class AdminApiTest extends TestCase
 
     public function test_admin_can_upload_court_image_and_customers_cannot(): void
     {
-        Storage::fake('public');
         $admin = User::create([
             'name' => 'Admin',
             'email' => 'admin@example.com',
@@ -144,7 +143,7 @@ class AdminApiTest extends TestCase
         ])->assertOk()->assertJsonPath('data.name', 'Lapangan 1');
 
         $imagePath = Court::query()->where('name', 'Lapangan 1')->value('image_path');
-        Storage::disk('public')->assertExists($imagePath);
+        $this->assertDatabaseHas('stored_images', ['path' => $imagePath]);
         $this->get('/storage/'.$imagePath)->assertOk();
         $this->getJson('/api/v1/settings')
             ->assertOk()
@@ -158,7 +157,6 @@ class AdminApiTest extends TestCase
 
     public function test_admin_can_manage_public_home_promos(): void
     {
-        Storage::fake('public');
         $admin = User::create([
             'name' => 'Admin',
             'email' => 'promo-admin@example.com',
@@ -195,7 +193,7 @@ class AdminApiTest extends TestCase
             'image' => UploadedFile::fake()->image('banner.png'),
         ])->assertOk()->assertJsonPath('data.title', 'Main lebih seru');
         $imagePath = DB::table('promo_banners')->where('id', $promoId)->value('image_path');
-        Storage::disk('public')->assertExists($imagePath);
+        $this->assertDatabaseHas('stored_images', ['path' => $imagePath]);
 
         Sanctum::actingAs($customer);
         $this->postJson('/api/v1/promos', [
@@ -210,7 +208,6 @@ class AdminApiTest extends TestCase
 
     public function test_web_admin_can_upload_court_image_from_courts_page(): void
     {
-        Storage::fake('public');
         $admin = User::create([
             'name' => 'Admin',
             'email' => 'web-admin@example.com',
@@ -231,27 +228,30 @@ class AdminApiTest extends TestCase
             ->assertRedirect();
 
         $imagePath = Court::query()->whereKey($court->id)->value('image_path');
-        Storage::disk('public')->assertExists($imagePath);
+        $this->assertDatabaseHas('stored_images', ['path' => $imagePath]);
     }
 
     public function test_uploaded_court_images_are_served_with_long_lived_cache_headers(): void
     {
-        Storage::fake('public');
-        Storage::disk('public')->putFileAs(
-            'courts',
+        $imagePath = StoredImage::fromUpload(
             UploadedFile::fake()->image('legacy-court.jpg'),
-            'legacy-court.jpg',
+            'courts',
         );
 
-        $this->get('/storage/courts/legacy-court.jpg')
+        $storedImage = StoredImage::query()->where('path', $imagePath)->firstOrFail();
+        $response = $this->get('/storage/'.$imagePath)
             ->assertOk()
             ->assertHeader('Cache-Control', 'immutable, max-age=31536000, public')
             ->assertHeader('Content-Type', 'image/jpeg');
+
+        $this->assertSame(
+            base64_decode($storedImage->base64_data, true),
+            $response->getContent(),
+        );
     }
 
     public function test_web_admin_can_create_court_with_image_in_separate_form(): void
     {
-        Storage::fake('public');
         $admin = User::create([
             'name' => 'Admin',
             'email' => 'new-court-admin@example.com',
@@ -280,7 +280,7 @@ class AdminApiTest extends TestCase
         $court = Court::query()->where('name', 'Lapangan Baru')->firstOrFail();
         $this->assertSame('Rumput sintetis', $court->surface);
         $this->assertNotNull($court->image_path);
-        Storage::disk('public')->assertExists($court->image_path);
+        $this->assertDatabaseHas('stored_images', ['path' => $court->image_path]);
     }
 
     public function test_web_admin_can_manage_venue_facilities_and_court_details(): void
@@ -378,7 +378,6 @@ class AdminApiTest extends TestCase
 
     public function test_web_admin_can_manage_home_promos(): void
     {
-        Storage::fake('public');
         $admin = User::create([
             'name' => 'Admin',
             'email' => 'web-promo-admin@example.com',
@@ -412,7 +411,7 @@ class AdminApiTest extends TestCase
             ->where('title', 'Main bareng teman')
             ->firstOrFail();
         $oldImagePath = $promo->image_path;
-        Storage::disk('public')->assertExists($oldImagePath);
+        $this->assertDatabaseHas('stored_images', ['path' => $oldImagePath]);
 
         $this->actingAs($admin)
             ->get("/admin/promos/{$promo->id}/edit")
@@ -429,7 +428,7 @@ class AdminApiTest extends TestCase
                 'image' => UploadedFile::fake()->image('promo-edit.png'),
             ])
             ->assertRedirect(route('admin.promos'));
-        Storage::disk('public')->assertMissing($oldImagePath);
+        $this->assertDatabaseMissing('stored_images', ['path' => $oldImagePath]);
 
         $this->actingAs($admin)
             ->post("/admin/promos/{$promo->id}/image", [
@@ -437,12 +436,12 @@ class AdminApiTest extends TestCase
             ])
             ->assertRedirect();
         $imagePath = $promo->fresh()->image_path;
-        Storage::disk('public')->assertExists($imagePath);
+        $this->assertDatabaseHas('stored_images', ['path' => $imagePath]);
 
         $this->actingAs($admin)
             ->delete("/admin/promos/{$promo->id}")
             ->assertRedirect();
-        Storage::disk('public')->assertMissing($imagePath);
+        $this->assertDatabaseMissing('stored_images', ['path' => $imagePath]);
     }
 
     public function test_mobile_can_read_venue_settings(): void

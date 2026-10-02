@@ -26,7 +26,7 @@ php artisan serve
 
 Open `http://127.0.0.1:8000/admin/login`. The seeded account uses `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`. Change the example password before exposing the server to a network. Mobile registration requires a six-digit email OTP; configure SMTP in `.env` for delivery. With the default local `MAIL_MAILER=log`, message contents are written to `storage/logs/laravel.log`.
 
-Admins can upload a court photo from the Flutter admin panel's **Lapangan** tab. Images are stored on the public disk and served through `public/storage`.
+Admins can upload court photos from the admin panel. Court and promo image bytes are stored in the MySQL `stored_images` table and served through Laravel's `/storage/...` route, so uploads survive application deployments without a separate storage service. Apply the `stored_images` migration in production before using image uploads.
 
 ## Flutter app
 

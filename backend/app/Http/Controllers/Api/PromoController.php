@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PromoBanner;
+use App\Models\StoredImage;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class PromoController extends Controller
 {
@@ -39,11 +39,8 @@ class PromoController extends Controller
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $path = $data['image']->store('promo-banners', 'public');
-
-        if ($promo->image_path) {
-            Storage::disk('public')->delete($promo->image_path);
-        }
+        $path = StoredImage::fromUpload($data['image'], 'promo-banners');
+        StoredImage::deletePath($promo->image_path);
 
         $promo->update(['image_path' => $path]);
 
@@ -52,9 +49,7 @@ class PromoController extends Controller
 
     public function destroy(PromoBanner $promo)
     {
-        if ($promo->image_path) {
-            Storage::disk('public')->delete($promo->image_path);
-        }
+        StoredImage::deletePath($promo->image_path);
         $promo->delete();
 
         return response()->json(['message' => 'Banner dihapus.']);

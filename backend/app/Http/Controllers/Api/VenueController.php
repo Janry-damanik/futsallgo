@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\BlockedSlot;
 use App\Models\Court;
+use App\Models\StoredImage;
 use App\Models\VenueSetting;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class VenueController extends Controller
@@ -148,11 +148,8 @@ class VenueController extends Controller
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $model = Court::query()->where('name', $court)->firstOrFail();
-        $path = $data['image']->store('courts', 'public');
-
-        if ($model->image_path) {
-            Storage::disk('public')->delete($model->image_path);
-        }
+        $path = StoredImage::fromUpload($data['image'], 'courts');
+        StoredImage::deletePath($model->image_path);
 
         $model->update(['image_path' => $path]);
 

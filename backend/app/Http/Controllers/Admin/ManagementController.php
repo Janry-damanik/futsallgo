@@ -8,11 +8,11 @@ use App\Models\Booking;
 use App\Models\Court;
 use App\Models\CourtReview;
 use App\Models\PromoBanner;
+use App\Models\StoredImage;
 use App\Models\User;
 use App\Models\VenueSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 
 class ManagementController extends Controller
 {
@@ -128,7 +128,7 @@ class ManagementController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('courts', 'public');
+            $data['image_path'] = StoredImage::fromUpload($request->file('image'), 'courts');
         }
         Court::create($data);
 
@@ -140,11 +140,8 @@ class ManagementController extends Controller
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $path = $data['image']->store('courts', 'public');
-
-        if ($court->image_path) {
-            Storage::disk('public')->delete($court->image_path);
-        }
+        $path = StoredImage::fromUpload($data['image'], 'courts');
+        StoredImage::deletePath($court->image_path);
 
         $court->update(['image_path' => $path]);
 
@@ -160,6 +157,7 @@ class ManagementController extends Controller
 
     public function deleteCourt(Court $court)
     {
+        StoredImage::deletePath($court->image_path);
         $court->delete();
 
         return back()->with('success', 'Lapangan dihapus.');
@@ -189,7 +187,7 @@ class ManagementController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('promo-banners', 'public');
+            $data['image_path'] = StoredImage::fromUpload($request->file('image'), 'promo-banners');
         }
         PromoBanner::query()->create($data);
 
@@ -203,10 +201,8 @@ class ManagementController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         if ($request->hasFile('image')) {
-            if ($promo->image_path) {
-                Storage::disk('public')->delete($promo->image_path);
-            }
-            $data['image_path'] = $request->file('image')->store('promo-banners', 'public');
+            $data['image_path'] = StoredImage::fromUpload($request->file('image'), 'promo-banners');
+            StoredImage::deletePath($promo->image_path);
         }
         $promo->update($data);
 
@@ -218,11 +214,8 @@ class ManagementController extends Controller
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $path = $data['image']->store('promo-banners', 'public');
-
-        if ($promo->image_path) {
-            Storage::disk('public')->delete($promo->image_path);
-        }
+        $path = StoredImage::fromUpload($data['image'], 'promo-banners');
+        StoredImage::deletePath($promo->image_path);
 
         $promo->update(['image_path' => $path]);
 
@@ -231,9 +224,7 @@ class ManagementController extends Controller
 
     public function deletePromo(PromoBanner $promo)
     {
-        if ($promo->image_path) {
-            Storage::disk('public')->delete($promo->image_path);
-        }
+        StoredImage::deletePath($promo->image_path);
         $promo->delete();
 
         return back()->with('success', 'Banner dihapus.');
