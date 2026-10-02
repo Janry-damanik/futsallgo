@@ -11,8 +11,11 @@ Route::get('/', fn () => redirect()->route(auth()->check() ? 'admin.dashboard' :
 Route::get('/admin/login', [AuthController::class, 'create'])->middleware('guest')->name('login');
 Route::post('/admin/login', [AuthController::class, 'store'])->middleware('guest')->name('admin.login');
 Route::post('/admin/logout', [AuthController::class, 'destroy'])->middleware('auth')->name('admin.logout');
-Route::get('/storage/courts/{filename}', PublicCourtImageController::class)
-    ->where('filename', '[A-Za-z0-9][A-Za-z0-9_.-]{0,254}')
+Route::get('/storage/{directory}/{filename}', PublicCourtImageController::class)
+    ->where([
+        'directory' => 'courts|promo-banners',
+        'filename' => '[A-Za-z0-9][A-Za-z0-9_.-]{0,254}',
+    ])
     ->name('court-images.show');
 Route::get('/email/verify/{id}/{hash}', EmailVerificationController::class)
     ->middleware(['signed', 'throttle:6,1'])

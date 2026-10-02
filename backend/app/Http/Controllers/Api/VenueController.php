@@ -148,7 +148,7 @@ class VenueController extends Controller
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $model = Court::query()->where('name', $court)->firstOrFail();
-        $path = $data['image']->storePublicly('courts', 'public');
+        $path = $data['image']->store('courts', 'public');
 
         if ($model->image_path) {
             Storage::disk('public')->delete($model->image_path);

@@ -145,6 +145,7 @@ class AdminApiTest extends TestCase
 
         $imagePath = Court::query()->where('name', 'Lapangan 1')->value('image_path');
         Storage::disk('public')->assertExists($imagePath);
+        $this->get('/storage/'.$imagePath)->assertOk();
         $this->getJson('/api/v1/settings')
             ->assertOk()
             ->assertJsonPath('data.courtImages.Lapangan 1', $upload->json('data.imageUrl'));

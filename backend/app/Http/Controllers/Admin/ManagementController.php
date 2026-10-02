@@ -128,7 +128,7 @@ class ManagementController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->storePublicly('courts', 'public');
+            $data['image_path'] = $request->file('image')->store('courts', 'public');
         }
         Court::create($data);
 
@@ -140,7 +140,7 @@ class ManagementController extends Controller
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $path = $data['image']->storePublicly('courts', 'public');
+        $path = $data['image']->store('courts', 'public');
 
         if ($court->image_path) {
             Storage::disk('public')->delete($court->image_path);
@@ -189,7 +189,7 @@ class ManagementController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->storePublicly('promo-banners', 'public');
+            $data['image_path'] = $request->file('image')->store('promo-banners', 'public');
         }
         PromoBanner::query()->create($data);
 
@@ -206,7 +206,7 @@ class ManagementController extends Controller
             if ($promo->image_path) {
                 Storage::disk('public')->delete($promo->image_path);
             }
-            $data['image_path'] = $request->file('image')->storePublicly('promo-banners', 'public');
+            $data['image_path'] = $request->file('image')->store('promo-banners', 'public');
         }
         $promo->update($data);
 
@@ -218,7 +218,7 @@ class ManagementController extends Controller
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $path = $data['image']->storePublicly('promo-banners', 'public');
+        $path = $data['image']->store('promo-banners', 'public');
 
         if ($promo->image_path) {
             Storage::disk('public')->delete($promo->image_path);

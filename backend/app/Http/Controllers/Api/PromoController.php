@@ -39,7 +39,7 @@ class PromoController extends Controller
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $path = $data['image']->storePublicly('promo-banners', 'public');
+        $path = $data['image']->store('promo-banners', 'public');
 
         if ($promo->image_path) {
             Storage::disk('public')->delete($promo->image_path);
